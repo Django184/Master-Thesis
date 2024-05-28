@@ -1,50 +1,31 @@
 import pandas as pd
 import glob 
+import numpy as np
+import matplotlib.pyplot as plt
+import os
 
-file_paths = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/Drone GPR/*.txt") # return all file paths that match a specific pattern
+file_paths = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/Drone GPR/Field A/*.txt") # return all file paths that match a specific pattern
 
 gpr_data_tables = []
 
 for file_path in file_paths:
     gpr_data_table = pd.read_csv(file_path, sep = "  ", engine="python")
-    gpr_data_tables.append(gpr_data_tables)
+    gpr_data_tables.append(gpr_data_table)
 
+median_GPR_data_tables = []
+for gpr_data_table in gpr_data_tables:
+    median_GPR_data_table = gpr_data_table.iloc[:,2].median()
+    median_GPR_data_tables.append(median_GPR_data_table)
 
-print(gpr_data_tables[0].head())
-print(gpr_data_tables[0].describe())
+print(median_GPR_data_tables)
 
-import matplotlib.pyplot as plt
-
-# Plot x and y coordinates
-plt.figure(figsize=(10, 10))
-plt.scatter(gpr_data_tables[0].iloc[:, 0], gpr_data_tables[0].iloc[:, 1])
-plt.xlabel('Longitude (WGS84)')
-plt.ylabel('Latitude (WGS84)')
-plt.title('Locations of GPR measurements')
-plt.show()
-
-# Plot volumetric water content
-plt.figure(figsize=(10, 10))
-plt.scatter(gpr_data_tables[0].iloc[:, 0], gpr_data_tables[0].iloc[:, 1], c=gpr_data_tables[0].iloc[:, 2])
-plt.xlabel('Longitude (WGS84)')
-plt.ylabel('Latitude (WGS84)')
-plt.title('Volumetric water content of the soil')
-plt.colorbar()
-plt.show()
-
-
-
-
-
-
-
-
-
-
-#gpr_data = pd.read_csv(file_path, sep = "  ", engine="python")
-
-
-
-
+dates = []
+for file_path in file_paths:
+    file_name = os.path.basename(file_path)
+    file_name_without_extension = os.path.splitext(file_name)[0]
+    
+    date = file_name_without_extension[4:6] + "/" + file_name_without_extension[2:4] + "/" + "20" + file_name_without_extension[:2]
+    dates.append(date)
+print(dates)
 
 
