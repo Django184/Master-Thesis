@@ -96,4 +96,21 @@ plt.show()
 gpr_data_tables = []
 dates = []
 
-    
+
+# Plot sampling points of first file
+first_file_data_table = pd.read_csv(field_a_paths[0], sep = "  ", engine="python")
+plt.figure(figsize=(10,6))
+scatter = plt.scatter(first_file_data_table.iloc[:,1], first_file_data_table.iloc[:,0], c=first_file_data_table.iloc[:,2], cmap='viridis', label='Sampling points')
+plt.xlabel('X [m]')
+plt.ylabel('Y [m]')
+plt.title('Sampling points of first file')
+plt.xticks(rotation=45)
+cb = plt.colorbar(scatter)
+cb.set_label('Volumetric Water Content [/]')
+plt.grid(True)
+plt.legend()
+plt.show()
+
+
+
+
