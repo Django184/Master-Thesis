@@ -1,146 +1,48 @@
-
-# Import libraries
-import pandas as pd
-import glob 
 import numpy as np
+import rasterio
 import matplotlib.pyplot as plt
-import os
-import skgstat as skg
-from skgstat import models
-import gstatsim as gs
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from sklearn.preprocessing import QuantileTransformer 
-import pyproj # for reprojection
 
-# Fields paths
-field_a_paths = glob.glob("D:/Cours bioingé/BIR M2/Mémoires/Data/Drone GPR/Field A/*.txt") # return all file paths that match a specific pattern
-field_b_paths = glob.glob("D:/Cours bioingé/BIR M2/Mémoires/Data/Drone GPR/Field B/*.txt")
+def calculate_tvdi(temperature_raster, ndvi_raster):
+    # Read temperature raster
+    with rasterio.open(temperature_raster) as temp_src:
+        temperature = temp_src.read(1)
+        temp_profile = temp_src.profile
 
-sample_number = 0           # [0-10]
-field_path = field_a_paths  # field_a_paths or field_b_paths
+    # Read NDVI raster
+    with rasterio.open(ndvi_raster) as ndvi_src:
+        ndvi = ndvi_src.read(1)
+        ndvi_profile = ndvi_src.profile
 
-# Define the transformer for WGS84 to UTM (UTM zone 32N)
-transformer = pyproj.Transformer.from_crs("epsg:4326", "epsg:32632", always_xy=True)
+    temperature = temperature[:15233, :14564]
+    ndvi = ndvi[:15233, :14564]
 
-# Import data function
-def import_data(file_paths=glob.glob("D:/Cours bioingé/BIR M2/Mémoires/Data/Drone GPR/Field A/*.txt")):
-    gpr_data_tables = []
-    for file_path in file_paths:
-        data_frame = pd.read_csv(file_path, sep = "  ", engine="python") # read csv file
-        data_frame.columns = ['y', 'x', 'vwc'] # rename columns
-        gpr_data_tables.append(data_frame)
+    # Calculate TVDI
+    numerator = (temperature - 273.15) - ndvi
+    denominator = (temperature - 273.15) + ndvi
+    tvdi = numerator / denominator
 
-    return gpr_data_tables
+    # Adjusting TVDI range to 0-255 for storing as unsigned 8-bit integer
+    tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(np.uint8)
 
-# Extract dates function
-dates = []
-def extract_dates(file_paths=glob.glob("D:/Cours bioingé/BIR M2/Mémoires/Data/Drone GPR/Field A/*.txt")):
-    for file_path in file_paths:
-        file_name = os.path.basename(file_path)
-        file_name_without_extension = os.path.splitext(file_name)[0]
-        date = file_name_without_extension[4:6] + "/" + file_name_without_extension[2:4] + "/" + "20" + file_name_without_extension[:2]
-        dates.append(date)
-        
-    return dates
+    # Write TVDI to a new raster
+    tvdi_profile = temp_profile.copy()
+    tvdi_profile.update(dtype=rasterio.uint8, count=1)
 
-# Letter of the field
-if field_path == field_a_paths:
-    field_letter = "A"
-else:
-    field_letter = "B"
+    with rasterio.open(r"D:\Coding\Master-Thesis\tvdii.tif", 'w', **tvdi_profile) as dst:
+        dst.write(tvdi_adjusted, 1)
 
-# Date of the files
-extract_dates(field_path)
+    print("TVDI calculation completed and saved as tvdi.tif")
 
-# Read csv file
-Studied_field = import_data(field_path)# grid data to 0,5 m resolution and remove coordinates with NaNs
-res = 0.5
-df_grid, grid_matrix, rows, cols = gs.Gridding.grid_data(Studied_field, 'x', 'y', 'vwc', res)
-df_grid = df_grid[df_grid["Z"].isnull() == False]
-df_grid = df_grid.rename(columns = {"Z": "vwc"})
+# Example usage
+temperature_raster = "D:/Cours bioingé/BIR M2/Mémoire/Data/thermal/MR20240205_georeferenced_thermal_cali.tif"
+ndvi_raster = "D:/Cours bioingé/BIR M2/Mémoire/Data/multispectral/NDVI/MR20230719_georeferenced_multi_ndvi.tif"
+calculate_tvdi(temperature_raster, ndvi_raster)
+calculate_tvdi(temperature_raster, ndvi_raster)
 
-# normal score transformation
-data = df_grid['vwc'].values.reshape(-1,1)
-nst_trans = QuantileTransformer(n_quantiles=500, output_distribution="normal").fit(data)
-df_grid['nvwc'] = nst_trans.transform(data) 
-
-# compute experimental (isotropic) variogram
-coords = df_grid[['x','y']].values.reshape(-1, 2)
-values = df_grid['nvwc']
-
-maxlag = 50000             # maximum range distance
-n_lags = 70                # num of bins
-
-V1 = skg.Variogram(coords, values, bin_func='even', n_lags=n_lags, 
-                   maxlag=maxlag, normalize=False)
-
-# use exponential variogram model
-V1.model = 'exponential'
-V1.parameters# grid data to 0,5 m resolution and remove coordinates with NaNs
-res = 0.5
-df_grid, grid_matrix, rows, cols = gs.Gridding.grid_data(Studied_field, 'x', 'y', 'vwc', res)
-df_grid = df_grid[df_grid["Z"].isnull() == False]
-df_grid = df_grid.rename(columns = {"Z": "vwc"})
-
-# normal score transformation
-data = df_grid['vwc'].values.reshape(-1,1)
-nst_trans = QuantileTransformer(n_quantiles=500, output_distribution="normal").fit(data)
-df_grid['nvwc'] = nst_trans.transform(data) 
-
-# compute experimental (isotropic) variogram
-coords = df_grid[['x','y']].values.reshape(-1, 2)
-values = df_grid['nvwc']
-
-maxlag = 50000             # maximum range distance
-n_lags = 70                # num of bins
-
-V1 = skg.Variogram(coords, values, bin_func='even', n_lags=n_lags, 
-                   maxlag=maxlag, normalize=False)
-
-# use exponential variogram model
-V1.model = 'exponential'
-V1.parameters# grid data to 100 m resolution and remove coordinates with NaNs
-res = 1000
-df_grid, grid_matrix, rows, cols = gs.Gridding.grid_data(Studied_field, 'x', 'y', 'vwc', res)
-df_grid = df_grid[df_grid["Z"].isnull() == False]
-
-# Convert latitude and longitude to UTM coordinates
-utm_x, utm_y = transformer.transform(Studied_field['x'].values, Studied_field['y'].values)
-
-# Plot the sampling points
-plt.figure(figsize=(10, 6))
-scatter = plt.scatter(utm_x, utm_y, c=Studied_field['vwc'], cmap='viridis', label='Sampling points')
-plt.xlabel('X [m]')
-plt.ylabel('Y [m]')
-plt.title(f'Field {field_letter} GPR sampling {dates[sample_number]}')
-cb = plt.colorbar(scatter)
-cb.set_label('Volumetric Water Content [/]')
-plt.grid(False)
-plt.legend()
+# Plot the TVDI
+plt.imshow(tvdi_adjusted, cmap='gray')
+plt.colorbar()
+plt.title('TVDI')
 plt.show()
 
-# grid data to 100 m resolution and remove coordinates with NaNs
-res = 0.5
-df_grid, grid_matrix, rows, cols = gs.Gridding.grid_data(Studied_field, 'x', 'y', 'vwc', res)
-df_grid = df_grid[df_grid["vwc"].isnull() == False]
-
-# normal score transformation
-data = df_grid['X'].values.reshape(-1,1)
-nst_trans = QuantileTransformer(n_quantiles=500, output_distribution="normal").fit(data)
-df_grid['nvwc'] = nst_trans.transform(data) 
-
-# compute experimental (isotropic) variogram
-coords = df_grid[['X','Y']].values
-values = df_grid['vwc']
-
-maxlag = 50000             # maximum range distance
-n_lags = 70                # num of bins
-
-V1 = skg.Variogram(coords, values, bin_func='even', n_lags=n_lags, 
-                   maxlag=maxlag, normalize=False)
-
-# use exponential variogram model
-V1.model = 'exponential'
-V1.parameters
-
-
+print("TVDI calculation completed and plotted")
