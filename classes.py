@@ -16,9 +16,7 @@ import glob
 
 
 # Fields paths
-field_a_paths = glob.glob(
-    "D:/Cours bioingé/BIR M2/Mémoires/Data/Drone GPR/Field A/*.txt"
-)
+field_a_paths = glob.glob("D:/Cours bioingé/BIR M2/Mémoires/Data/Drone GPR/Field A/*.txt")
 field_b_paths = glob.glob("D:/Cours bioingé/BIR M2/Mémoires/Data/Drone GPR/Field B/*.txt")
 
 
@@ -59,14 +57,10 @@ class GprData:
             raise ValueError("Invalid field letter")
 
         studied_field = import_data(field_path)[sample_number]
-        utm_x, utm_y = transformer.transform(
-            studied_field["x"].values, studied_field["y"].values
-        )
+        utm_x, utm_y = transformer.transform(studied_field["x"].values, studied_field["y"].values)
 
         plt.figure(figsize=(10, 6))
-        scatter = plt.scatter(
-            utm_x, utm_y, c=studied_field["vwc"], cmap="viridis", label="Sampling points"
-        )
+        scatter = plt.scatter(utm_x, utm_y, c=studied_field["vwc"], cmap="viridis", label="Sampling points")
         plt.xlabel("X [m]")
         plt.ylabel("Y [m]")
         title = f"Field {field_letter} GPR sampling {self.extract_dates()[sample_number]}"
@@ -76,7 +70,6 @@ class GprData:
         plt.grid(False)
         plt.legend()
         plt.show()
-
 
 
 test1 = GprData(field_a_paths)
