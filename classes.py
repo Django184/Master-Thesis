@@ -5,6 +5,7 @@ from skgstat import models
 from sklearn.preprocessing import QuantileTransformer
 import gstatsim as gs
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 import os
 import pandas as pd
@@ -12,6 +13,7 @@ import pyproj  # for reprojection
 import rasterio
 import skgstat as skg
 import glob
+from shapely.geometry import Polygon
 
 
 class GprAnalysis:
@@ -70,7 +72,7 @@ class GprAnalysis:
         """GPR raw data plot"""
         studied_field = self.import_data()[self.sample_number]
 
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(8, 6))
         scatter = plt.scatter(
             studied_field["x"], studied_field["y"], c=studied_field["vwc"], cmap="viridis", label="Sampling points"
         )
@@ -78,7 +80,7 @@ class GprAnalysis:
         plt.ylabel("Y [m]")
 
         if plot:
-            plt.title(f"Field {self.field_letter} GPR sampling {self.extract_dates()[self.sample_number]}")
+            plt.title(f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
             cb = plt.colorbar(scatter)
             cb.set_label("Volumetric Water Content [/]")
             plt.grid(False)
@@ -100,18 +102,58 @@ class GprAnalysis:
         dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
 
         if plot:
-            plt.figure(figsize=(10, 6))
+            plt.figure(figsize=(8, 6))
             plt.plot(dates, median_evolution, marker="o", label="Median")
             plt.plot(dates, mean_evolution, marker="o", label="Mean")
             plt.xlabel("Date")
             plt.ylabel("VWC [/]")
-            plt.title("Evolution of Median and Mean Volumetric Water Content on field A")
+            plt.title(
+                f"Evolution of Median and Mean Volumetric Water Content - (Field {self.field_letter} {self.extract_dates()[self.sample_number]})"
+            )
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
             plt.ylim(0.2, 0.5)
             plt.grid(True)
             plt.legend()
             plt.show()
+
+    def calculate_extent(self, plot=False):
+        """Calculate the extent of the GPR sample"""
+
+        data = self.import_data()[self.sample_number]
+        x_min = data["x"].min()
+        x_max = data["x"].max()
+        y_min = data["y"].min()
+        y_max = data["y"].max()
+
+        # Calculate the parallelogram extent
+        x_mid = (x_min + x_max) / 2
+        x_width = (x_max - x_min) / 2
+        y_mid = (y_min + y_max) / 2
+        y_height = (y_max - y_min) / 2
+        x_parallelogram = [x_mid - x_width, x_mid + x_width, x_mid + x_width, x_mid - x_width, x_mid - x_width]
+        y_parallelogram = [y_mid - y_height, y_mid - y_height, y_mid + y_height, y_mid + y_height, y_mid - y_height]
+
+        if plot:
+            plt.figure(figsize=(8, 6))
+            plt.scatter(data["x"], data["y"], c="blue", label="Sampling points")
+            plt.plot(x_parallelogram, y_parallelogram, c="red", label="Parallelogram extent")
+            plt.xlabel("X [m]")
+            plt.ylabel("Y [m]")
+            plt.title(f"Extent of GPR sample - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
+            plt.xlim(x_min, x_max)
+            plt.ylim(y_min, y_max)
+            plt.grid(False)
+            plt.legend()
+            plt.show()
+
+        return (x_min, x_max, y_min, y_max)
+
+    def create_rectangle_polygon(self):
+        """Create a rectangular polygon around the sample locations"""
+        x_min, x_max, y_min, y_max = self.calculate_extent()
+        polygon = Polygon([(x_min, y_min), (x_min, y_max), (x_max, y_max), (x_max, y_min), (x_min, y_min)])
+        return polygon
 
     def kriging(self, x_grid_step=0.00001, y_grid_step=0.00001, plot=True):
         """Kriging interpolation"""
@@ -138,17 +180,22 @@ class GprAnalysis:
 
         z_grid = np.transpose(z)  # Transpose the result to match the grid shape
 
+        # Create a rectangular polygon around the sample locations
+        polygon = self.create_rectangle_polygon()
+        extent = polygon.bounds
+
+        # Crop the interpolated plot using the extent
+        xi = np.arange(extent[0], extent[2] + x_grid_step, x_grid_step)
+        yi = np.arange(extent[1], extent[3] + y_grid_step, y_grid_step)
+
         if plot:
-            plt.imshow(
-                z_grid, extent=[grid_x.min(), grid_x.max(), grid_y.min(), grid_y.max()], origin="lower", cmap="viridis"
-            )
+            plt.imshow(z_grid, extent=[extent[0], extent[2], extent[1], extent[3]], origin="lower", cmap="viridis")
             plt.colorbar(label="Volumetric Water Content [/]")
             plt.xlabel("X [m]")
             plt.ylabel("Y [m]")
             plt.xticks(rotation=45)
-            plt.title(f"Field {self.field_letter} - Interpolated Surface {self.extract_dates()[self.sample_number]}")
+            plt.title(f"Interpolated Surface - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
             plt.grid(False)
-
             plt.tight_layout()
             plt.show()
 
@@ -156,12 +203,18 @@ class GprAnalysis:
 class Variogram:
     """Variogram creation and fitting"""
 
-    def __init__(self, resolution=0.00002, field_paths=GprAnalysis
-    .FIELD_A_PATHS, sample_number=0):
-        '''Initialisation of the GPR field data'''
+    def __init__(self, resolution=0.00002, field_paths=GprAnalysis.FIELD_A_PATHS, sample_number=0):
+        """Initialisation of the GPR field data"""
         self.resolution = resolution
         self.field_paths = field_paths
         self.sample_number = sample_number
+
+        if field_paths == GprAnalysis.FIELD_A_PATHS:
+            self.field_letter = "A"
+        elif field_paths == GprAnalysis.FIELD_B_PATHS:
+            self.field_letter = "B"
+        else:
+            raise ValueError("field_paths must be either FIELD_A_PATHS or FIELD_B_PATHS")
 
     def determ_experimental_vario(self, maxlag=10, n_lags=100, solo_plot=True):
         """Determine the experimental variogram model"""
@@ -192,16 +245,20 @@ class Variogram:
         ydata = v1.experimental
 
         if solo_plot:
-            plt.figure(figsize=(6, 4))
+            plt.figure(figsize=(8, 6))
             plt.scatter(xdata, ydata, s=12, c="g")
-            plt.title("Isotropic Experimental Variogram")
+            plt.title(
+                f"Isotropic experimental model - Field {self.field_letter} ({GprAnalysis.extract_dates(self)[self.sample_number]})"
+            )
             plt.xlabel("Lag (m)")
             plt.ylabel("Semivariance")
             plt.show()
 
         return v1, xdata, ydata
 
-    def fit_models(self, maxlag=10, n_lags=100, solo_plot=False, multi_plot=True, multi_zoom_plot=True):
+    def fit_models(
+        self, maxlag=10, n_lags=100, solo_plot=False, multi_plot=True, multi_zoom_plot=True, sample_number=0
+    ):
         """
         Fits variogram models to the experimental variogram.
 
@@ -216,7 +273,7 @@ class Variogram:
         None
         """
         # extract experimental variogram values
-        v1, xdata, ydata = self.experimental_vario(maxlag, n_lags, solo_plot)
+        v1, xdata, ydata = self.determ_experimental_vario(maxlag, n_lags, solo_plot)
 
         # use exponential variogram model
         v1.model = "exponential"
@@ -241,12 +298,14 @@ class Variogram:
 
         # plot variogram models
         if multi_plot:
-            plt.figure(figsize=(6, 4))
+            plt.figure(figsize=(8, 6))
             plt.plot(xdata / 1000, ydata, "og", label="Experimental variogram")
             plt.plot(xi / 1000, y_gauss, "b--", label="Gaussian variogram")
             plt.plot(xi / 1000, y_exp, "r-", label="Exponential variogram")
             plt.plot(xi / 1000, y_sph, "m*-", label="Spherical variogram")
-            plt.title("Isotropic variogram")
+            plt.title(
+                f"Isotropic variogram models comparison - Field {self.field_letter} ({GprAnalysis.extract_dates(self)[self.sample_number]})"
+            )
             plt.xlabel("Lag [km]")
             plt.ylabel("Semivariance")
             plt.legend(loc="lower right")
@@ -254,19 +313,19 @@ class Variogram:
 
         # plot zoom in models
         if multi_zoom_plot:
-            plt.figure(figsize=(6, 4))
+            plt.figure(figsize=(8, 6))
             plt.plot(xdata / 1000, ydata, "og", label="Experimental variogram")
             plt.plot(xi / 1000, y_gauss, "b--", label="Gaussian variogram")
             plt.plot(xi / 1000, y_exp, "r-", label="Exponential variogram")
             plt.plot(xi / 1000, y_sph, "m*-", label="Spherical variogram")
-            plt.title("Isotropic variogram")
+            plt.title(
+                f"Isotropic variogram models comparison (zoom in) - Field {self.field_letter} ({GprAnalysis.extract_dates(self)[self.sample_number]})"
+            )
             plt.xlim(0, 0.0000003)
             plt.xlabel("Lag [km]")
             plt.ylabel("Semivariance")
             plt.legend(loc="lower right")
             plt.show()
-
-
 
 
 class MultispecAnalysis:
@@ -322,18 +381,17 @@ class MultispecAnalysis:
         plt.show()
 
     def t_max(ndvi):
-        '''Placeholder coefficients for T_max(NDVI) = a * NDVI + b'''
+        """Placeholder coefficients for T_max(NDVI) = a * NDVI + b"""
         a = 40
         b = 300
         return a * ndvi + b
 
-
     def t_min(ndvi):
-        '''Placeholder coefficients for T_min(NDVI) = c * NDVI + d'''
+        """Placeholder coefficients for T_min(NDVI) = c * NDVI + d"""
         c = 20
         d = 250
         return c * ndvi + d
-        
 
-test1 = MultispecAnalysis()
-test1.calculate_tvdi()
+
+test = GprAnalysis()
+test.calculate_extent(plot=True)
