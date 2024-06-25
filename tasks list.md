@@ -2,9 +2,9 @@
 
 - Sample number on multispectral and dates
 - wgs1984 check units and graphs units
-- courbe de pluies
+    - uniquement multispectral
+- courbe de pluies -> via site mails
 - prendre les relevés sur place pour voir une tendance moyennne
-- multispectral check code
 - optram and TVDI
 - crop multispectral
 - crop interpolated GPR

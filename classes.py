@@ -68,24 +68,44 @@ class GprAnalysis:
 
         return dates
 
-    def plot_raw_sample(self, plot=True):
-        """GPR raw data plot"""
+    def plot_raw_data(self, plot=True):
+        """Plot the raw GPR data"""
+        # Read csv file
         studied_field = self.import_data()[self.sample_number]
 
-        plt.figure(figsize=(8, 6))
-        scatter = plt.scatter(
-            studied_field["x"], studied_field["y"], c=studied_field["vwc"], cmap="viridis", label="Sampling points"
-        )
+        # Convert latitude and longitude to UTM coordinates
+        utm_x, utm_y = self.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
+
+        # Plot the raw data
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(utm_x, utm_y, c=studied_field["vwc"], cmap="viridis_r", label="Raw data")
         plt.xlabel("X [m]")
         plt.ylabel("Y [m]")
-
+        plt.title(f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
+        cb = plt.colorbar(scatter)
+        cb.set_label("Volumetric Water Content [/]")
+        plt.grid(False)
+        plt.legend()
         if plot:
-            plt.title(f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
-            cb = plt.colorbar(scatter)
-            cb.set_label("Volumetric Water Content [/]")
-            plt.grid(False)
-            plt.legend()
             plt.show()
+
+    def convert_to_utm(self, latitudes, longitudes):
+        """Convert latitude and longitude to UTM coordinates"""
+        # Define the WGS84 and UTM coordinate systems
+        crs_wgs84 = pyproj.CRS("EPSG:4326")
+        crs_utm = pyproj.CRS("EPSG:32632")  # UTM Zone 32
+
+        # Create the transformer from WGS84 to UTM
+        transformer = pyproj.Transformer.from_crs(crs_wgs84, crs_utm)
+
+        # Convert latitude and longitude to UTM coordinates
+        utm_x, utm_y = transformer.transform(longitudes, latitudes)
+
+        # Shift the UTM coordinates to start at 0m
+        utm_x -= utm_x.min()
+        utm_y -= utm_y.min()
+
+        return utm_x, utm_y
 
     def plot_mean_median(self, plot=True):
         """GPR mean and median data plot"""
@@ -108,7 +128,7 @@ class GprAnalysis:
             plt.xlabel("Date")
             plt.ylabel("VWC [/]")
             plt.title(
-                f"Evolution of Median and Mean Volumetric Water Content - (Field {self.field_letter} {self.extract_dates()[self.sample_number]})"
+                f"Evolution of Median and Mean Volumetric Water Content - (Field {self.field_letter})"
             )
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
@@ -117,37 +137,98 @@ class GprAnalysis:
             plt.legend()
             plt.show()
 
-    def calculate_extent(self, plot=False):
-        """Calculate the extent of the GPR sample"""
+    # def plot_mean_median_kriging(self, plot=True):
+    #     """GPR mean and median data plot"""
+    #     studied_field = self.import_data()
 
-        data = self.import_data()[self.sample_number]
-        x_min = data["x"].min()
-        x_max = data["x"].max()
-        y_min = data["y"].min()
-        y_max = data["y"].max()
+    #     mean_evolution = []
+    #     median_evolution = []
 
-        # Calculate the parallelogram extent
-        x_mid = (x_min + x_max) / 2
-        x_width = (x_max - x_min) / 2
-        y_mid = (y_min + y_max) / 2
-        y_height = (y_max - y_min) / 2
-        x_parallelogram = [x_mid - x_width, x_mid + x_width, x_mid + x_width, x_mid - x_width, x_mid - x_width]
-        y_parallelogram = [y_mid - y_height, y_mid - y_height, y_mid + y_height, y_mid + y_height, y_mid - y_height]
+    #     for gpr_data_table in studied_field:
+    #         # Perform Kriging interpolation
+    #         x_grid_step = 10  # Adjust the step size as needed
+    #         y_grid_step = 10  # Adjust the step size as needed
+    #         z_grid = self.kriging(x_grid_step=x_grid_step, y_grid_step=y_grid_step, plot=False)
 
-        if plot:
-            plt.figure(figsize=(8, 6))
-            plt.scatter(data["x"], data["y"], c="blue", label="Sampling points")
-            plt.plot(x_parallelogram, y_parallelogram, c="red", label="Parallelogram extent")
-            plt.xlabel("X [m]")
-            plt.ylabel("Y [m]")
-            plt.title(f"Extent of GPR sample - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
-            plt.xlim(x_min, x_max)
-            plt.ylim(y_min, y_max)
-            plt.grid(False)
-            plt.legend()
-            plt.show()
+    #         # Calculate mean and median of the Kriging data
+    #         if z_grid is not None:
+    #             mean_kriging = np.mean(z_grid)
+    #             median_kriging = np.median(z_grid)
+    #         else:
+    #             # Handle the case when z_grid is None
+    #             mean_kriging = None
+    #             median_kriging = None
 
-        return (x_min, x_max, y_min, y_max)
+    #         mean_evolution.append(mean_kriging)
+    #         median_evolution.append(median_kriging)
+
+    #     dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
+
+    #     if plot:
+    #         plt.figure(figsize=(8, 6))
+    #         plt.plot(dates, median_evolution, marker="o", label="Median Kriging")
+    #         plt.plot(dates, mean_evolution, marker="o", label="Mean Kriging")
+    #         plt.xlabel("Date")
+    #         plt.ylabel("VWC [/]")
+    #         plt.title(
+    #             f"Evolution of Median and Mean Volumetric Water Content - (Field {self.field_letter} {self.extract_dates()[self.sample_number]})"
+    #         )
+    #         plt.xticks(rotation=45)
+    #         plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
+    #         plt.ylim(0.2, 0.5)
+    #         plt.grid(True)
+    #         plt.legend()
+    #         plt.show()
+
+    # def calculate_extent(self):
+    #     """Calculate the extent of the GPR sample"""
+    #     data = self.import_data()[self.sample_number]
+    #     x_min = data["x"].min()
+    #     x_max = data["x"].max()
+    #     y_min = data["y"].min()
+    #     y_max = data["y"].max()
+    #     return x_min, x_max, y_min, y_max
+
+    # def crop_to_extent(self, array, extent, grid_x, grid_y):
+    #     """Crop the kriging result to the given extent"""
+    #     x_min, x_max, y_min, y_max = extent
+    #     mask = (grid_x >= x_min) & (grid_x <= x_max) & (grid_y >= y_min) & (grid_y <= y_max)
+    #     cropped_array = np.full_like(array, np.nan)
+    #     cropped_array[mask] = array[mask]
+    #     return cropped_array
+
+    # def testkriging(self, x_grid_step=1, y_grid_step=1, plot=True):
+    #     """
+    #     Ordinary Kriging interpolation
+    #     x_grid_step and y_grid_step are the step size of the grid in meters
+    #     """
+    #     studied_field = self.import_data()[self.sample_number]
+    #     utm_x, utm_y = self.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
+
+    #     x_min, x_max = min(utm_x), max(utm_x)
+    #     y_min, y_max = min(utm_y), max(utm_y)
+
+    #     grid_x = np.arange(x_min, x_max, x_grid_step)
+    #     grid_y = np.arange(y_min, y_max, y_grid_step)
+
+    #     ordinary_kriging = OrdinaryKriging(
+    #         utm_x, utm_y, studied_field["vwc"], variogram_model="exponential", verbose=False, enable_plotting=False
+    #     )
+    #     z, ss = ordinary_kriging.execute("grid", grid_x, grid_y)
+
+    #     extent = self.calculate_extent()
+    #     z_cropped = self.crop_to_extent(z, extent, grid_x, grid_y)
+
+    #     if plot:
+    #         plt.figure(figsize=(8, 6))
+    #         plt.imshow(z_cropped, extent=(x_min, x_max, y_min, y_max), origin="lower", cmap="viridis_r")
+    #         plt.colorbar(label="Kriging Interpolated VWC")
+    #         plt.xlabel("X [m]")
+    #         plt.ylabel("Y [m]")
+    #         plt.title(f"Kriging Interpolation - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
+    #         plt.show()
+
+    #     return z_cropped
 
     def create_rectangle_polygon(self):
         """Create a rectangular polygon around the sample locations"""
@@ -155,21 +236,28 @@ class GprAnalysis:
         polygon = Polygon([(x_min, y_min), (x_min, y_max), (x_max, y_max), (x_max, y_min), (x_min, y_min)])
         return polygon
 
-    def kriging(self, x_grid_step=0.00001, y_grid_step=0.00001, plot=True):
-        """Kriging interpolation"""
+    def kriging(self, x_grid_step=1, y_grid_step=1, plot=True):
+        """
+        Ordinary Kriging interpolation
+        x_grid_step and y_grid_step are the step size of the grid in meters
+
+        """
 
         studied_field = self.import_data()[self.sample_number]
 
+        # Convert latitude and longitude to UTM coordinates
+        utm_x, utm_y = self.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
+
         # Define your prediction grid
-        x_min, x_max = min(studied_field["x"]), max(studied_field["x"])
-        y_min, y_max = min(studied_field["y"]), max(studied_field["y"])
+        x_min, x_max = min(utm_x), max(utm_x)
+        y_min, y_max = min(utm_y), max(utm_y)
 
         grid_x = np.arange(x_min, x_max, x_grid_step)  # Adjust the step size as needed
         grid_y = np.arange(y_min, y_max, y_grid_step)  # Adjust the step size as needed
 
         ordinary_kriging = OrdinaryKriging(
-            studied_field["x"],
-            studied_field["y"],
+            utm_x,
+            utm_y,
             studied_field["vwc"],
             variogram_model="exponential",
             verbose=False,
@@ -180,24 +268,19 @@ class GprAnalysis:
 
         z_grid = np.transpose(z)  # Transpose the result to match the grid shape
 
-        # Create a rectangular polygon around the sample locations
-        polygon = self.create_rectangle_polygon()
-        extent = polygon.bounds
-
-        # Crop the interpolated plot using the extent
-        xi = np.arange(extent[0], extent[2] + x_grid_step, x_grid_step)
-        yi = np.arange(extent[1], extent[3] + y_grid_step, y_grid_step)
-
         if plot:
-            plt.imshow(z_grid, extent=[extent[0], extent[2], extent[1], extent[3]], origin="lower", cmap="viridis")
-            plt.colorbar(label="Volumetric Water Content [/]")
+            plt.figure(figsize=(8, 6))
+            plt.imshow(z_grid, extent=(x_min, x_max, y_min, y_max), origin="lower", cmap="viridis_r")
+            plt.colorbar()
             plt.xlabel("X [m]")
             plt.ylabel("Y [m]")
-            plt.xticks(rotation=45)
-            plt.title(f"Interpolated Surface - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
+            plt.title(f"Kriging Interpolation - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
+            # plt.xlim(x_min, x_max)
+            # plt.ylim(y_min, y_max)
             plt.grid(False)
-            plt.tight_layout()
             plt.show()
+
+        return x_grid_step, y_grid_step
 
 
 class Variogram:
@@ -216,31 +299,40 @@ class Variogram:
         else:
             raise ValueError("field_paths must be either FIELD_A_PATHS or FIELD_B_PATHS")
 
-    def determ_experimental_vario(self, maxlag=10, n_lags=100, solo_plot=True):
-        """Determine the experimental variogram model"""
-        # grid data to ? m resolution
-        df_grid, grid_matrix, rows, cols = gs.Gridding.grid_data(
-            GprAnalysis.import_data(self)[self.sample_number], "x", "y", "vwc", self.resolution
-        )
+        self.gpr_analysis = GprAnalysis(field_paths, sample_number)
 
-        df_grid = df_grid[df_grid["Z"].isnull() == False]  # remove nans
+    def determ_experimental_vario(self, maxlag=30, n_lags=200, solo_plot=True):
+        """
+        Determine the experimental variogram model
+        Parameters:
+        - maxlag: int, the maximum range distance
+        - n_lags: int, the number of bins
 
-        # normal score transformation
+        """
+        # Read csv file
+        studied_field = self.gpr_analysis.import_data()[self.sample_number]
+
+        # Convert latitude and longitude to UTM coordinates
+        utm_x, utm_y = self.gpr_analysis.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
+        # Create a new DataFrame with UTM coordinates
+        df_grid = pd.DataFrame({"X": utm_x, "Y": utm_y, "Z": studied_field["vwc"]})
+
+        # Remove NaN values
+        df_grid = df_grid[df_grid["Z"].isnull() == False]
+
+        # Normal score transformation
         data = df_grid["Z"].values.reshape(-1, 1)
         nst_trans = QuantileTransformer(n_quantiles=500, output_distribution="normal").fit(data)
         df_grid["Nbed"] = nst_trans.transform(data)
 
-        # compute experimental (isotropic) variogram
+        # Compute experimental (isotropic) variogram
         coords = df_grid[["X", "Y"]].values
         values = df_grid["Nbed"]
 
-        maxlag = 10  # maximum range distance
-        n_lags = 100  # num of bins
-
-        # compute variogram
+        # Compute variogram
         v1 = skg.Variogram(coords, values, bin_func="even", n_lags=n_lags, maxlag=maxlag, normalize=False)
 
-        # extract variogram values
+        # Extract variogram values
         xdata = v1.bins
         ydata = v1.experimental
 
@@ -257,21 +349,9 @@ class Variogram:
         return v1, xdata, ydata
 
     def fit_models(
-        self, maxlag=10, n_lags=100, solo_plot=False, multi_plot=True, multi_zoom_plot=True, sample_number=0
+        self, maxlag=30, n_lags=200, solo_plot=False, multi_plot=True, multi_zoom_plot=True, sample_number=0
     ):
-        """
-        Fits variogram models to the experimental variogram.
-
-        Parameters:
-        - maxlag: int, the maximum lag distance for the variogram
-        - n_lags: int, the number of lag distances to consider
-        - solo_plot: bool, whether to plot each model individually
-        - multi_plot: bool, whether to plot all models together
-        - multi_zoom_plot: bool, whether to plot all models with zoomed-in x-axis
-
-        Returns:
-        None
-        """
+        """Fits variogram models to the experimental variogram."""
         # extract experimental variogram values
         v1, xdata, ydata = self.determ_experimental_vario(maxlag, n_lags, solo_plot)
 
@@ -299,14 +379,14 @@ class Variogram:
         # plot variogram models
         if multi_plot:
             plt.figure(figsize=(8, 6))
-            plt.plot(xdata / 1000, ydata, "og", label="Experimental variogram")
-            plt.plot(xi / 1000, y_gauss, "b--", label="Gaussian variogram")
-            plt.plot(xi / 1000, y_exp, "r-", label="Exponential variogram")
-            plt.plot(xi / 1000, y_sph, "m*-", label="Spherical variogram")
+            plt.plot(xdata, ydata, "og", label="Experimental variogram")
+            plt.plot(xi, y_gauss, "b--", label="Gaussian variogram")
+            plt.plot(xi, y_exp, "r-", label="Exponential variogram")
+            plt.plot(xi, y_sph, "m*-", label="Spherical variogram")
             plt.title(
                 f"Isotropic variogram models comparison - Field {self.field_letter} ({GprAnalysis.extract_dates(self)[self.sample_number]})"
             )
-            plt.xlabel("Lag [km]")
+            plt.xlabel("Lag [m]")
             plt.ylabel("Semivariance")
             plt.legend(loc="lower right")
             plt.show()
@@ -314,15 +394,15 @@ class Variogram:
         # plot zoom in models
         if multi_zoom_plot:
             plt.figure(figsize=(8, 6))
-            plt.plot(xdata / 1000, ydata, "og", label="Experimental variogram")
-            plt.plot(xi / 1000, y_gauss, "b--", label="Gaussian variogram")
-            plt.plot(xi / 1000, y_exp, "r-", label="Exponential variogram")
-            plt.plot(xi / 1000, y_sph, "m*-", label="Spherical variogram")
+            plt.plot(xdata, ydata, "og", label="Experimental variogram")
+            plt.plot(xi, y_gauss, "b--", label="Gaussian variogram")
+            plt.plot(xi, y_exp, "r-", label="Exponential variogram")
+            plt.plot(xi, y_sph, "m*-", label="Spherical variogram")
             plt.title(
                 f"Isotropic variogram models comparison (zoom in) - Field {self.field_letter} ({GprAnalysis.extract_dates(self)[self.sample_number]})"
             )
-            plt.xlim(0, 0.0000003)
-            plt.xlabel("Lag [km]")
+            plt.xlim(0, 5)
+            plt.xlabel("Lag [m]")
             plt.ylabel("Semivariance")
             plt.legend(loc="lower right")
             plt.show()
@@ -362,8 +442,8 @@ class MultispecAnalysis:
         )
 
         # Calculate T_max and T_min
-        t_max_values = MultispecAnalysis.t_max(ndvi_resampled)
-        t_min_values = MultispecAnalysis.t_min(ndvi_resampled)
+        t_max_values = self.t_max(ndvi_resampled)
+        t_min_values = self.t_min(ndvi_resampled)
 
         # Calculate TVDI
         tvdi = (temperature - t_min_values) / (t_max_values - t_min_values)
@@ -375,23 +455,96 @@ class MultispecAnalysis:
         tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(np.uint8)
 
         # Plot TVDI
-        plt.imshow(tvdi_adjusted, cmap="jet", vmin=0, vmax=255)
+        plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
         plt.colorbar(label="TVDI")
         plt.title("Temperature Vegetation Dryness Index (TVDI)")
         plt.show()
 
-    def t_max(ndvi):
+    def t_max(self, ndvi):
         """Placeholder coefficients for T_max(NDVI) = a * NDVI + b"""
         a = 40
         b = 300
         return a * ndvi + b
 
-    def t_min(ndvi):
+    def t_min(self, ndvi):
         """Placeholder coefficients for T_min(NDVI) = c * NDVI + d"""
         c = 20
         d = 250
         return c * ndvi + d
 
 
-test = GprAnalysis()
-test.calculate_extent(plot=True)
+class TdrAnalysis:
+
+    FIELD_PATHS = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx")
+
+    def __init__(self, field_paths=FIELD_PATHS, sample_number=0):
+        """Initialisation of the TDR field data"""
+        self.field_paths = field_paths
+        self.sample_number = sample_number
+
+    def import_data(self, show=False):
+        """Importation of the TDR field data"""
+        tdr_data_table = []
+        for tdr_path in self.field_paths:
+            data_frame = pd.read_excel(tdr_path)  # read excel file
+            tdr_data_table.append(data_frame)
+
+        if show:
+            print(tdr_data_table)
+
+        return tdr_data_table
+
+    def extract_dates(self, show=False):
+        """Dates extraction from files names"""
+        dates = []
+        for tdr_path in self.field_paths:
+            file_name = os.path.basename(tdr_path)
+            file_name_without_extension = os.path.splitext(file_name)[0]
+            date = (
+                file_name_without_extension[12:14]
+                + "/"
+                + file_name_without_extension[9:11]
+                + "/"
+                + "20"
+                + file_name_without_extension[6:8]
+            )
+            dates.append(date)
+
+        if show:
+            print(dates)
+
+        return dates
+
+    def plot_tdr_evolution(self, plot=True):
+        """TDR mean data plot"""
+        studied_field = self.import_data()
+
+        mean_evolution = []
+        for tdr_data_table in studied_field:
+            mean_evolution.append(tdr_data_table.iloc[:, 0].mean())
+
+        median_evolution = []
+        for gpr_data_table in studied_field:
+            median_evolution.append(gpr_data_table.iloc[:, 0].median())
+
+        dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
+
+        if plot:
+            plt.figure(figsize=(8, 6))
+            plt.plot(dates, median_evolution, marker="o", label="Median")
+            plt.plot(dates, mean_evolution, marker="o", label="Mean")
+            plt.xlabel("Date")
+            plt.ylabel("VWC [/]")
+            plt.title(
+                f"Evolution of Median and Mean Volumetric Water Content )"
+            )
+            plt.xticks(rotation=45)
+            plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
+            plt.ylim(0.2, 0.5)
+            plt.grid(True)
+            plt.legend()
+            plt.show()
+
+
+# test = TdrAnalysis()
+# test.plot_tdr_evolution()
