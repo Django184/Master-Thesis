@@ -127,9 +127,7 @@ class GprAnalysis:
             plt.plot(dates, mean_evolution, marker="o", label="Mean")
             plt.xlabel("Date")
             plt.ylabel("VWC [/]")
-            plt.title(
-                f"Evolution of Median and Mean Volumetric Water Content - (Field {self.field_letter})"
-            )
+            plt.title(f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})")
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
             plt.ylim(0.2, 0.5)
@@ -482,6 +480,8 @@ class TdrAnalysis:
         self.field_paths = field_paths
         self.sample_number = sample_number
 
+        self.sample_number = sample_number
+
     def import_data(self, show=False):
         """Importation of the TDR field data"""
         tdr_data_table = []
@@ -516,35 +516,32 @@ class TdrAnalysis:
         return dates
 
     def plot_tdr_evolution(self, plot=True):
-        """TDR mean data plot"""
+        """TDR median data plot"""
         studied_field = self.import_data()
 
-        mean_evolution = []
-        for tdr_data_table in studied_field:
-            mean_evolution.append(tdr_data_table.iloc[:, 0].mean())
-
-        median_evolution = []
-        for gpr_data_table in studied_field:
-            median_evolution.append(gpr_data_table.iloc[:, 0].median())
-
+        median_evolution = [tdr_data_table["VWC"].median() for tdr_data_table in studied_field]
+        variance_upper = [
+            tdr_data_table["VWC"].median() + tdr_data_table["VWC"].std() for tdr_data_table in studied_field
+        ]
+        variance_lower = [
+            tdr_data_table["VWC"].median() - tdr_data_table["VWC"].std() for tdr_data_table in studied_field
+        ]
         dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
 
         if plot:
             plt.figure(figsize=(8, 6))
-            plt.plot(dates, median_evolution, marker="o", label="Median")
-            plt.plot(dates, mean_evolution, marker="o", label="Mean")
+            plt.plot(dates, median_evolution, marker="o", label="Mean")
+            plt.fill_between(dates, variance_lower, variance_upper, color="gray", alpha=0.5, label="Variance")
             plt.xlabel("Date")
             plt.ylabel("VWC [/]")
-            plt.title(
-                f"Evolution of Median and Mean Volumetric Water Content )"
-            )
+            plt.title(f"Evolution of TDR derived Volumetric Water Content")
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
-            plt.ylim(0.2, 0.5)
+            plt.ylim(0.45, 0.95)
             plt.grid(True)
             plt.legend()
             plt.show()
 
 
-# test = TdrAnalysis()
-# test.plot_tdr_evolution()
+test = TdrAnalysis()
+test.plot_test()
