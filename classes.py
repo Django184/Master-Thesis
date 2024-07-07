@@ -443,9 +443,7 @@ class MultispecAnalysis:
 
 
 class TdrAnalysis:
-    FIELD_PATHS = glob.glob(
-        "D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx"
-    )
+    FIELD_PATHS = glob.glob("Data/VWC verification/*.xlsx")
 
     def __init__(self, field_paths=FIELD_PATHS, sample_number=0):
         """Initialisation of the TDR field data"""
@@ -542,7 +540,7 @@ class TdrAnalysis:
 
 
 class Rainfall:
-    PATHS = glob.glob(r"D:\Cours bioingé\BIR M2\Mémoire\Data\Météo\*.xlsx")
+    PATHS = glob.glob("Data/Météo/*.xlsx")
 
     def __init__(self, paths=PATHS):
         """Initialisation of the TDR field data"""
