@@ -39,9 +39,7 @@ class GprAnalysis:
         """Importation of the GPR field A data"""
         gpr_data_table = []
         for gpr_path in self.field_paths:
-            data_frame = pd.read_csv(
-                gpr_path, sep="  ", engine="python"
-            )  # read csv file
+            data_frame = pd.read_csv(gpr_path, sep="  ", engine="python")  # read csv file
             data_frame.columns = ["y", "x", "vwc"]  # rename columns
             gpr_data_table.append(data_frame)
 
@@ -74,20 +72,14 @@ class GprAnalysis:
         studied_field = self.import_data()[self.sample_number]
 
         # Convert latitude and longitude to UTM coordinates
-        utm_x, utm_y = self.convert_to_utm(
-            studied_field["x"].values, studied_field["y"].values
-        )
+        utm_x, utm_y = self.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
 
         # Plot the raw data
         plt.figure(figsize=(10, 6))
-        scatter = plt.scatter(
-            utm_x, utm_y, c=studied_field["vwc"], cmap="viridis_r", label="Raw data"
-        )
+        scatter = plt.scatter(utm_x, utm_y, c=studied_field["vwc"], cmap="viridis_r", label="Raw data")
         plt.xlabel("X [m]")
         plt.ylabel("Y [m]")
-        plt.title(
-            f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
-        )
+        plt.title(f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
         cb = plt.colorbar(scatter)
         cb.set_label("Volumetric Water Content [/]")
         plt.grid(False)
@@ -124,9 +116,7 @@ class GprAnalysis:
         for gpr_data_table in studied_field:
             median_evolution.append(gpr_data_table["vwc"].median())
 
-        dates = pd.to_datetime(
-            self.extract_dates(), format="%d/%m/%Y"
-        )  # Convert dates to datetime objects
+        dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
 
         if plot:
             plt.figure(figsize=(8, 6))
@@ -134,9 +124,7 @@ class GprAnalysis:
             plt.plot(dates, mean_evolution, marker="o", label="Mean")
             plt.xlabel("Date")
             plt.ylabel("VWC [/]")
-            plt.title(
-                f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})"
-            )
+            plt.title(f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})")
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
             plt.ylim(0.2, 0.5)
@@ -258,9 +246,7 @@ class GprAnalysis:
         studied_field = self.import_data()[self.sample_number]
 
         # Convert latitude and longitude to UTM coordinates
-        utm_x, utm_y = self.convert_to_utm(
-            studied_field["x"].values, studied_field["y"].values
-        )
+        utm_x, utm_y = self.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
 
         # Define your prediction grid
         x_min, x_max = min(utm_x), max(utm_x)
@@ -321,9 +307,7 @@ class GprAnalysis:
             plt.colorbar()
             plt.xlabel("X [m]")
             plt.ylabel("Y [m]")
-            plt.title(
-                f"Kriging Interpolation - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
-            )
+            plt.title(f"Kriging Interpolation - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
             plt.grid(False)
             plt.show()
 
@@ -358,9 +342,7 @@ class Variogram:
         studied_field = self.gpr_analysis.import_data()[self.sample_number]
 
         # Convert latitude and longitude to UTM coordinates
-        utm_x, utm_y = self.gpr_analysis.convert_to_utm(
-            studied_field["x"].values, studied_field["y"].values
-        )
+        utm_x, utm_y = self.gpr_analysis.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
         # Create a new DataFrame with UTM coordinates
         df_grid = pd.DataFrame({"X": utm_x, "Y": utm_y, "Z": studied_field["vwc"]})
 
@@ -369,9 +351,7 @@ class Variogram:
 
         # Normal score transformation
         data = df_grid["Z"].values.reshape(-1, 1)
-        nst_trans = QuantileTransformer(
-            n_quantiles=500, output_distribution="normal"
-        ).fit(data)
+        nst_trans = QuantileTransformer(n_quantiles=500, output_distribution="normal").fit(data)
         df_grid["Nbed"] = nst_trans.transform(data)
 
         # Compute experimental (isotropic) variogram
@@ -434,18 +414,9 @@ class Variogram:
         # evaluate models
         xi = np.linspace(0, xdata[-1], 100)
 
-        y_exp = [
-            models.exponential(h, v1.parameters[0], v1.parameters[1], v1.parameters[2])
-            for h in xi
-        ]
-        y_gauss = [
-            models.gaussian(h, v2.parameters[0], v2.parameters[1], v2.parameters[2])
-            for h in xi
-        ]
-        y_sph = [
-            models.spherical(h, v3.parameters[0], v3.parameters[1], v3.parameters[2])
-            for h in xi
-        ]
+        y_exp = [models.exponential(h, v1.parameters[0], v1.parameters[1], v1.parameters[2]) for h in xi]
+        y_gauss = [models.gaussian(h, v2.parameters[0], v2.parameters[1], v2.parameters[2]) for h in xi]
+        y_sph = [models.spherical(h, v3.parameters[0], v3.parameters[1], v3.parameters[2]) for h in xi]
 
         # plot variogram models
         if multi_plot:
@@ -526,9 +497,7 @@ class MultispecAnalysis:
         tvdi[np.isnan(tvdi)] = -9999
 
         # Adjusting TVDI range to 0-255 for storing as unsigned 8-bit integer
-        tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(
-            np.uint8
-        )
+        tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(np.uint8)
 
         # Plot TVDI
         plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
@@ -550,31 +519,23 @@ class MultispecAnalysis:
 
 
 class TdrAnalysis:
-
-    FIELD_PATHS = glob.glob(
-        "D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx"
-    )
+    FIELD_PATHS = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx")
 
     def __init__(self, field_paths=FIELD_PATHS, sample_number=0):
         """Initialisation of the TDR field data"""
         self.field_paths = field_paths
         self.sample_number = sample_number
 
-        self.sample_number = sample_number
-
-    def import_data(self, show=False):
+    def import_data(self):
         """Importation of the TDR field data"""
         tdr_data_table = []
         for tdr_path in self.field_paths:
             data_frame = pd.read_excel(tdr_path)  # read excel file
             tdr_data_table.append(data_frame)
 
-        if show:
-            print(tdr_data_table)
-
         return tdr_data_table
 
-    def extract_dates(self, show=False):
+    def extract_dates(self):
         """Dates extraction from files names"""
         dates = []
         for tdr_path in self.field_paths:
@@ -589,9 +550,6 @@ class TdrAnalysis:
                 + file_name_without_extension[6:8]
             )
             dates.append(date)
-
-        if show:
-            print(dates)
 
         return dates
 
@@ -600,36 +558,45 @@ class TdrAnalysis:
         studied_field = self.import_data()
 
         # Separate data for fields A and B based on latitude
-        # Create empty lists for field A and B data
-        field_a_data = []
-        field_b_data = []
-
+        field_a_median = []
+        field_b_median = []
+        field_a_sd_median = []
+        field_b_sd_median = []
         for table in studied_field:
-            if table.loc[table["Lat"] < 50.496773, "Lat"].any():
-                field_a_data.append(table)
-            else:
-                field_b_data.append(table)
-
+            field_a_data = []
+            field_a_sd = []
+            field_b_data = []
+            field_b_sd = []
+            for index, lat in enumerate(table["Lat"].values):
+                if lat < 50.496773:
+                    field_a_data.append(table["VWC"].values[index])
+                    field_a_sd.append(table["sd"].values[index])
+                else:
+                    field_b_data.append(table["VWC"].values[index])
+                    field_b_sd.append(table["sd"].values[index])
+            field_a_median.append(np.median(field_a_data))
+            field_a_sd_median.append(np.median(field_a_sd))
+            field_b_median.append(np.median(field_b_data))
+            field_b_sd_median.append(np.median(field_b_sd))
         # Create an instance of TdrAnalysis
         tdr_analysis = TdrAnalysis()
 
         # Plot for Field A
-        tdr_analysis.plot_data(field_a_data, "Field A")
+        print(field_b_data)
+        tdr_analysis.plot_data(field_a_median, field_a_sd_median, "Field A")
 
         # Plot for Field B
-        tdr_analysis.plot_data(field_b_data, "Field B")
+        tdr_analysis.plot_data(field_b_median, field_b_sd_median, "Field B")
 
-    def plot_data(self, data, field_name):
+    def plot_data(self, medians, sds, field_name):
         """TDR median data plot"""
-        median_evolution = [table["VWC"].median() for table in data]
-
-        variance_upper = [table["VWC"].median() + table["VWC"].std() for table in data]
-        variance_lower = [table["VWC"].median() - table["VWC"].std() for table in data]
+        variance_upper = [median + sds[i] for i, median in enumerate(medians)]
+        variance_lower = [median - sds[i] for i, median in enumerate(medians)]
 
         dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")
 
         plt.figure(figsize=(8, 6))
-        plt.plot(dates, median_evolution, marker="o", label="Mean")
+        plt.plot(dates, medians, marker="o", label="Mean")
         plt.fill_between(
             dates,
             variance_lower,
@@ -640,102 +607,7 @@ class TdrAnalysis:
         )
         plt.xlabel("Date")
         plt.ylabel("VWC [/]")
-        plt.title(f"Evolution of TDR derived Volumetric Water Content - {field_name}")
-        plt.xticks(rotation=45)
-        plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
-        plt.ylim(0.45, 0.95)
-        plt.grid(True)
-        plt.legend()
-        plt.show()
-
-
-class GptTdr:
-
-    FIELD_PATHS = glob.glob(
-        "D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx"
-    )
-
-    def __init__(self, field_paths=FIELD_PATHS, sample_number=0):
-        """Initialisation of the TDR field data"""
-        self.field_paths = field_paths
-        self.sample_number = sample_number
-
-    def import_excel(self, show=False):
-        """Importation of the TDR field data"""
-        tdr_data_table = []
-        for tdr_path in self.field_paths:
-            data_frame = pd.read_excel(tdr_path)  # read excel file
-            tdr_data_table.append(data_frame)
-
-        if show:
-            print(tdr_data_table)
-
-        return tdr_data_table
-
-    def extract_dates(self, show=False):
-        """Dates extraction from files names"""
-        dates = []
-        for tdr_path in self.field_paths:
-            file_name = os.path.basename(tdr_path)
-            file_name_without_extension = os.path.splitext(file_name)[0]
-            date = (
-                file_name_without_extension[12:14]
-                + "/"
-                + file_name_without_extension[9:11]
-                + "/"
-                + "20"
-                + file_name_without_extension[6:8]
-            )
-            dates.append(date)
-
-        if show:
-            print(dates)
-
-        return dates
-
-    def plot_tdr_evolution(self, plot=True):
-        """TDR median data plot"""
-        studied_field = self.import_data()
-
-        # Separate data for fields A and B based on median VWC
-        threshold = 50.496773
-        field_a_data = []
-        field_b_data = []
-
-        for table in studied_field:
-            median_vwc = table["VWC"].median()
-            if median_vwc < threshold:
-                field_a_data.append(table)
-            else:
-                field_b_data.append(table)
-
-        # Plot for Field A
-        self.plot_data(field_a_data, "Field A")
-
-        # Plot for Field B
-        self.plot_data(field_b_data, "Field B")
-
-    def plot_data(self, data, field_name):
-        """TDR median data plot"""
-        median_evolution = [table["VWC"].median() for table in data]
-        variance_upper = [table["VWC"].median() + table["VWC"].std() for table in data]
-        variance_lower = [table["VWC"].median() - table["VWC"].std() for table in data]
-
-        dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")
-
-        plt.figure(figsize=(8, 6))
-        plt.plot(dates, median_evolution, marker="o", label="Mean")
-        plt.fill_between(
-            dates,
-            variance_lower,
-            variance_upper,
-            color="gray",
-            alpha=0.5,
-            label="Variance",
-        )
-        plt.xlabel("Date")
-        plt.ylabel("VWC [/]")
-        plt.title(f"Evolution of TDR derived Volumetric Water Content - {field_name}")
+        plt.title(f"TDR derived Volumetric Water Content - {field_name}")
         plt.xticks(rotation=45)
         plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
         plt.ylim(0.45, 0.95)
@@ -802,14 +674,15 @@ class Rainfall:
             )
             ax.set_xlabel("Date")
             ax.set_ylabel("Precipitation [mm]")
-            ax.set_title(f"Evolution of Rainfall Precipitation")
+            ax.set_title(f"Rainfall Precipitations Mont Rigi 2023-2024")
             ax.xaxis.set_major_locator(plt.MaxNLocator(12))
             ax.set_ylim(0, 40)
             ax.grid(True)
+            plt.xticks(rotation=45)
             ax.legend()
             fig.tight_layout()
             plt.show()
 
 
-rf1 = Rainfall()
-rf1.plot_data()
+tdr_test = TdrAnalysis()
+tdr_test.plot_tdr_evolution()
