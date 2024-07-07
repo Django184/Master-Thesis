@@ -10,7 +10,7 @@
 - optram and TVDI
 - crop multispectral
 - crop interpolated GPR
--mean and median evolution based on kriging
+- mean and median evolution based on kriging
 - mean and median evolution on multispectral
 - zonal check
 - 
