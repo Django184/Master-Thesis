@@ -19,8 +19,8 @@ from shapely.geometry import Polygon
 class GprAnalysis:
     """Visualisation of the GPR field data"""
 
-    FIELD_A_PATHS = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/Drone GPR/Field A/*.txt")
-    FIELD_B_PATHS = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/Drone GPR/Field B/*.txt")
+    FIELD_A_PATHS = glob.glob("Data/Drone GPR/Field A/*.txt")
+    FIELD_B_PATHS = glob.glob("Data/Drone GPR/Field B/*.txt")
 
     def __init__(self, field_paths=FIELD_A_PATHS, sample_number=0):
         """Initialisation of the GPR field data"""
