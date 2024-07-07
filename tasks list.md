@@ -22,4 +22,6 @@
 
 - Pour l'evolution du TDR séparer A et B selon lattitude (A <50.496773<B)
 
+zizi
+
 
