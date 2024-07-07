@@ -655,27 +655,45 @@ class Rainfall:
         """Initialisation of the TDR field data"""
         self.paths = paths
 
-    def plot_data(self, paths):
+    def import_excel(self, show=False):
+        """Importation of the raifall field data"""
+        rf_data = []
+        for rf_path in self.paths:
+            data_frame = pd.read_excel(rf_path)  # read excel file
+            rf_data.append(data_frame)
+
+        if show:
+            print(rf_data)
+
+        return rf_data
+
+    def plot_data(self, paths=PATHS, plot=True):
         """Rainfall data plot"""
 
-        field = TdrAnalysis.import_data(paths)
+        field = self.import_excel()
 
-        # median_evolution = []
-        # for gpr_data_table in field:
-        #     median_evolution.append(gpr_data_table["vwc"].median())
+        precipitations = []
+        dates = []
+        for rf_data in field:
+            precipitations.append(rf_data["prcp"])
+            dates.append(rf_data["date"])
+       
 
-        # dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
+        f_dates = pd.to_datetime(dates, format="%Y-%m-%d")
 
-        # if plot:
-        #     plt.figure(figsize=(8, 6))
-        #     plt.plot(dates, median_evolution, marker="o", label="Median")
-        #     plt.plot(dates, mean_evolution, marker="o", label="Mean")
-        #     plt.xlabel("Date")
-        #     plt.ylabel("VWC [/]")
-        #     plt.title(f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})")
-        #     plt.xticks(rotation=45)
-        #     plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
-        #     plt.ylim(0.2, 0.5)
-        #     plt.grid(True)
-        #     plt.legend()
-        #     plt.show()
+        if plot:
+            plt.figure(figsize=(8, 6))
+            plt.plot(f_dates, precipitations, marker="o", label="Median")
+            plt.xlabel("Date")
+            plt.ylabel("VWC [/]")
+            plt.title(f"Evolution of GPR derived Volumetric Water Content")
+            plt.xticks(rotation=45)
+            plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
+            plt.ylim(0.2, 0.5)
+            plt.grid(True)
+            plt.legend()
+            plt.show()
+
+
+rf1 = Rainfall()
+rf1.plot_data()
