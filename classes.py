@@ -6,6 +6,7 @@ from sklearn.preprocessing import QuantileTransformer
 import gstatsim as gs
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.path as path
 import numpy as np
 import os
 import pandas as pd
@@ -30,11 +31,9 @@ class GprAnalysis:
         if self.field_letter == "A":
             self.field_paths = FIELD_A_PATHS
         elif self.field_letter == "B":
-            self.field_paths = FIELD_A_PATHS
+            self.field_paths = FIELD_B_PATHS
         else:
-            raise ValueError(
-                "field_letter must be either A or B"
-            )
+            raise ValueError("field_letter must be either A or B")
 
     def import_data(self, show=False):
         """Importation of the GPR field A data"""
@@ -313,24 +312,20 @@ class GprAnalysis:
 class Variogram:
     """Variogram creation and fitting"""
 
-    def __init__(
-        self, resolution=0.00002, field_paths=FIELD_A_PATHS, sample_number=0
-    ):
+    def __init__(self, resolution=0.00002, field_letter="A", sample_number=0):
         """Initialisation of the GPR field data"""
         self.resolution = resolution
-        self.field_paths = field_paths
+        self.field_letter = field_letter
         self.sample_number = sample_number
 
-        if field_paths == FIELD_A_PATHS:
-            self.field_letter = "A"
-        elif field_paths == FIELD_B_PATHS:
-            self.field_letter = "B"
+        if field_letter == "A":
+            self.field_paths = FIELD_A_PATHS
+        elif field_letter == "B":
+            self.field_paths = FIELD_B_PATHS
         else:
-            raise ValueError(
-                "field_paths must be either FIELD_A_PATHS or FIELD_B_PATHS"
-            )
+            raise ValueError("field_letter must be either A or B")
 
-        self.gpr_analysis = GprAnalysis(field_paths, sample_number)
+        self.gpr_analysis = GprAnalysis(field_letter, sample_number)
 
     def determ_experimental_vario(self, maxlag=30, n_lags=200, solo_plot=True):
         """
