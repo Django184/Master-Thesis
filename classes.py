@@ -675,17 +675,18 @@ class Rainfall:
         precipitations = []
         dates = []
         for rf_data in field:
-            precipitations.append(rf_data["prcp"])
-            dates.append(rf_data["date"])
-       
+            precipitations.extend(rf_data["prcp"].tolist())
+            dates.extend(rf_data["date"].tolist())
 
-        f_dates = pd.to_datetime(dates, format="%Y-%m-%d")
+        print(dates)
+       
+        f_dates = pd.to_datetime(pd.Series(dates), format="%Y-%m-%d")
 
         if plot:
             plt.figure(figsize=(8, 6))
             plt.plot(f_dates, precipitations, marker="o", label="Median")
             plt.xlabel("Date")
-            plt.ylabel("VWC [/]")
+            plt.ylabel("Precipitation")
             plt.title(f"Evolution of GPR derived Volumetric Water Content")
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
@@ -693,7 +694,6 @@ class Rainfall:
             plt.grid(True)
             plt.legend()
             plt.show()
-
 
 rf1 = Rainfall()
 rf1.plot_data()
