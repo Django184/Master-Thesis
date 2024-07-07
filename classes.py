@@ -57,12 +57,12 @@ class GprAnalysis:
             file_name = os.path.basename(gpr_path)
             file_name_without_extension = os.path.splitext(file_name)[0]
             date = (
-                file_name_without_extension[4:6]
+                file_name_without_extension[8:10]
                 + "/"
-                + file_name_without_extension[2:4]
+                + file_name_without_extension[6:8]
                 + "/"
                 + "20"
-                + file_name_without_extension[:2]
+                + file_name_without_extension[4:6]
             )
             dates.append(date)
 
@@ -609,5 +609,5 @@ class Rainfall:
             plt.show()
 
 
-tdr_test = TdrAnalysis()
-tdr_test.plot_tdr_evolution()
+test = GprAnalysis()
+test.plot_raw_data()
