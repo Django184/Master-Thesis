@@ -251,12 +251,10 @@ class GprAnalysis:
         )
         return polygon
 
-    def kriging(self, x_grid_step=1, y_grid_step=1, plot=True):
+    def kriging(self, plot=True):
         """
         Ordinary Kriging interpolation
-        x_grid_step and y_grid_step are the step size of the grid in meters
         """
-
         studied_field = self.import_data()[self.sample_number]
 
         # Convert latitude and longitude to UTM coordinates
@@ -273,9 +271,16 @@ class GprAnalysis:
         grid_y = np.arange(y_min, y_max, 1)
         # Adjust the step size as needed
 
+        # Define the mask polygon coordinates
         polygon_coords = np.array(
-            [[-25, 100], [125, -25], [225, -25], [225, 125], [90, 225], [-25, 100]]
+            [[75, 0], [190, 110], [120, 210], [60, 225], [0, 175], [75, 0]]
         )
+        xlim, ylim = 200, 250
+        if self.field_letter == "B":
+            polygon_coords = np.array(
+                [[65, 0], [150, 75], [90, 175], [0, 125], [65, 0]]
+            )
+            xlim, ylim = 150, 175
 
         # Create a mask for the polygon
         polygon = path.Path(polygon_coords)
@@ -283,7 +288,7 @@ class GprAnalysis:
         for y in grid_y:
             mask.append([])
             for x in grid_x:
-                if not polygon.contains_point((y, x)):
+                if not polygon.contains_point((x, y)):
                     mask[int(y)].append(True)
                 else:
                     mask[int(y)].append(False)
@@ -302,16 +307,17 @@ class GprAnalysis:
             "masked", grid_x, grid_y, mask=mask
         )  # Execute the interpolation
 
-        z_grid = np.transpose(z)  # Transpose the result to match the grid shape
-
         if plot:
-            plt.figure(figsize=(8, 6))
+            plt.figure(figsize=(10, 6))
             plt.imshow(
-                z_grid,
+                z,
                 extent=(x_min, x_max, y_min, y_max),
                 origin="lower",
                 cmap="viridis_r",
+                aspect="auto",
             )
+            plt.xlim(-5, xlim)
+            plt.ylim(-5, ylim)
             plt.colorbar()
             plt.xlabel("X [m]")
             plt.ylabel("Y [m]")
@@ -320,8 +326,6 @@ class GprAnalysis:
             )
             plt.grid(False)
             plt.show()
-
-        return x_grid_step, y_grid_step
 
 
 class Variogram:
