@@ -15,30 +15,34 @@ import skgstat as skg
 import glob
 from shapely.geometry import Polygon
 
+FIELD_A_PATHS = glob.glob("Data/Drone GPR/Field A/*.txt")
+FIELD_B_PATHS = glob.glob("Data/Drone GPR/Field B/*.txt")
+
 
 class GprAnalysis:
     """Visualisation of the GPR field data"""
 
-    FIELD_A_PATHS = glob.glob("Data/Drone GPR/Field A/*.txt")
-    FIELD_B_PATHS = glob.glob("Data/Drone GPR/Field B/*.txt")
-
-    def __init__(self, field_paths=FIELD_A_PATHS, sample_number=0):
+    def __init__(self, field_letter="A", sample_number=0):
         """Initialisation of the GPR field data"""
-        self.field_paths = field_paths
+        self.field_letter = field_letter
         self.sample_number = sample_number
 
-        if field_paths == self.FIELD_A_PATHS:
-            self.field_letter = "A"
-        elif field_paths == self.FIELD_B_PATHS:
-            self.field_letter = "B"
+        if self.field_letter == "A":
+            self.field_paths = FIELD_A_PATHS
+        elif self.field_letter == "B":
+            self.field_paths = FIELD_A_PATHS
         else:
-            raise ValueError("field_paths must be either FIELD_A_PATHS or FIELD_B_PATHS")
+            raise ValueError(
+                "field_letter must be either A or B"
+            )
 
     def import_data(self, show=False):
         """Importation of the GPR field A data"""
         gpr_data_table = []
         for gpr_path in self.field_paths:
-            data_frame = pd.read_csv(gpr_path, sep="  ", engine="python")  # read csv file
+            data_frame = pd.read_csv(
+                gpr_path, sep="  ", engine="python"
+            )  # read csv file
             data_frame.columns = ["y", "x", "vwc"]  # rename columns
             gpr_data_table.append(data_frame)
 
@@ -47,7 +51,7 @@ class GprAnalysis:
 
         return gpr_data_table
 
-    def extract_dates(self, show=False):
+    def extract_dates(self):
         """Dates extraction from files names"""
         dates = []
         for gpr_path in self.field_paths:
@@ -63,31 +67,33 @@ class GprAnalysis:
             )
             dates.append(date)
 
-        if show:
-            print(dates)
-
         return dates
 
-    def plot_raw_data(self, plot=True):
+    def plot_raw_data(self):
         """Plot the raw GPR data"""
         # Read csv file
         studied_field = self.import_data()[self.sample_number]
 
         # Convert latitude and longitude to UTM coordinates
-        utm_x, utm_y = self.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
+        utm_x, utm_y = self.convert_to_utm(
+            studied_field["x"].values, studied_field["y"].values
+        )
 
         # Plot the raw data
         plt.figure(figsize=(10, 6))
-        scatter = plt.scatter(utm_x, utm_y, c=studied_field["vwc"], cmap="viridis_r", label="Raw data")
+        scatter = plt.scatter(
+            utm_x, utm_y, c=studied_field["vwc"], cmap="viridis_r", label="Raw data"
+        )
         plt.xlabel("X [m]")
         plt.ylabel("Y [m]")
-        plt.title(f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
+        plt.title(
+            f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
+        )
         cb = plt.colorbar(scatter)
         cb.set_label("Volumetric Water Content [/]")
         plt.grid(False)
         plt.legend()
-        if plot:
-            plt.show()
+        plt.show()
 
     def convert_to_utm(self, latitudes, longitudes):
         """Convert latitude and longitude to UTM coordinates"""
@@ -119,7 +125,9 @@ class GprAnalysis:
         for gpr_data_table in studied_field:
             median_evolution.append(gpr_data_table["vwc"].median())
 
-        dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
+        dates = pd.to_datetime(
+            self.extract_dates(), format="%d/%m/%Y"
+        )  # Convert dates to datetime objects
 
         if plot:
             plt.figure(figsize=(8, 6))
@@ -127,7 +135,9 @@ class GprAnalysis:
             plt.plot(dates, mean_evolution, marker="o", label="Mean")
             plt.xlabel("Date")
             plt.ylabel("VWC [/]")
-            plt.title(f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})")
+            plt.title(
+                f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})"
+            )
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
             plt.ylim(0.2, 0.5)
@@ -231,7 +241,15 @@ class GprAnalysis:
     def create_rectangle_polygon(self):
         """Create a rectangular polygon around the sample locations"""
         x_min, x_max, y_min, y_max = self.calculate_extent()
-        polygon = Polygon([(x_min, y_min), (x_min, y_max), (x_max, y_max), (x_max, y_min), (x_min, y_min)])
+        polygon = Polygon(
+            [
+                (x_min, y_min),
+                (x_min, y_max),
+                (x_max, y_max),
+                (x_max, y_min),
+                (x_min, y_min),
+            ]
+        )
         return polygon
 
     def kriging(self, x_grid_step=1, y_grid_step=1, plot=True):
@@ -244,7 +262,9 @@ class GprAnalysis:
         studied_field = self.import_data()[self.sample_number]
 
         # Convert latitude and longitude to UTM coordinates
-        utm_x, utm_y = self.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
+        utm_x, utm_y = self.convert_to_utm(
+            studied_field["x"].values, studied_field["y"].values
+        )
 
         # Define your prediction grid
         x_min, x_max = min(utm_x), max(utm_x)
@@ -262,17 +282,26 @@ class GprAnalysis:
             enable_plotting=False,
         )
 
-        z, ss = ordinary_kriging.execute("grid", grid_x, grid_y)  # Execute the interpolation
+        z, ss = ordinary_kriging.execute(
+            "grid", grid_x, grid_y
+        )  # Execute the interpolation
 
         z_grid = np.transpose(z)  # Transpose the result to match the grid shape
 
         if plot:
             plt.figure(figsize=(8, 6))
-            plt.imshow(z_grid, extent=(x_min, x_max, y_min, y_max), origin="lower", cmap="viridis_r")
+            plt.imshow(
+                z_grid,
+                extent=(x_min, x_max, y_min, y_max),
+                origin="lower",
+                cmap="viridis_r",
+            )
             plt.colorbar()
             plt.xlabel("X [m]")
             plt.ylabel("Y [m]")
-            plt.title(f"Kriging Interpolation - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})")
+            plt.title(
+                f"Kriging Interpolation - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
+            )
             # plt.xlim(x_min, x_max)
             # plt.ylim(y_min, y_max)
             plt.grid(False)
@@ -284,18 +313,22 @@ class GprAnalysis:
 class Variogram:
     """Variogram creation and fitting"""
 
-    def __init__(self, resolution=0.00002, field_paths=GprAnalysis.FIELD_A_PATHS, sample_number=0):
+    def __init__(
+        self, resolution=0.00002, field_paths=FIELD_A_PATHS, sample_number=0
+    ):
         """Initialisation of the GPR field data"""
         self.resolution = resolution
         self.field_paths = field_paths
         self.sample_number = sample_number
 
-        if field_paths == GprAnalysis.FIELD_A_PATHS:
+        if field_paths == FIELD_A_PATHS:
             self.field_letter = "A"
-        elif field_paths == GprAnalysis.FIELD_B_PATHS:
+        elif field_paths == FIELD_B_PATHS:
             self.field_letter = "B"
         else:
-            raise ValueError("field_paths must be either FIELD_A_PATHS or FIELD_B_PATHS")
+            raise ValueError(
+                "field_paths must be either FIELD_A_PATHS or FIELD_B_PATHS"
+            )
 
         self.gpr_analysis = GprAnalysis(field_paths, sample_number)
 
@@ -311,7 +344,9 @@ class Variogram:
         studied_field = self.gpr_analysis.import_data()[self.sample_number]
 
         # Convert latitude and longitude to UTM coordinates
-        utm_x, utm_y = self.gpr_analysis.convert_to_utm(studied_field["x"].values, studied_field["y"].values)
+        utm_x, utm_y = self.gpr_analysis.convert_to_utm(
+            studied_field["x"].values, studied_field["y"].values
+        )
         # Create a new DataFrame with UTM coordinates
         df_grid = pd.DataFrame({"X": utm_x, "Y": utm_y, "Z": studied_field["vwc"]})
 
@@ -320,7 +355,9 @@ class Variogram:
 
         # Normal score transformation
         data = df_grid["Z"].values.reshape(-1, 1)
-        nst_trans = QuantileTransformer(n_quantiles=500, output_distribution="normal").fit(data)
+        nst_trans = QuantileTransformer(
+            n_quantiles=500, output_distribution="normal"
+        ).fit(data)
         df_grid["Nbed"] = nst_trans.transform(data)
 
         # Compute experimental (isotropic) variogram
@@ -328,7 +365,14 @@ class Variogram:
         values = df_grid["Nbed"]
 
         # Compute variogram
-        v1 = skg.Variogram(coords, values, bin_func="even", n_lags=n_lags, maxlag=maxlag, normalize=False)
+        v1 = skg.Variogram(
+            coords,
+            values,
+            bin_func="even",
+            n_lags=n_lags,
+            maxlag=maxlag,
+            normalize=False,
+        )
 
         # Extract variogram values
         xdata = v1.bins
@@ -347,7 +391,13 @@ class Variogram:
         return v1, xdata, ydata
 
     def fit_models(
-        self, maxlag=30, n_lags=200, solo_plot=False, multi_plot=True, multi_zoom_plot=True, sample_number=0
+        self,
+        maxlag=30,
+        n_lags=200,
+        solo_plot=False,
+        multi_plot=True,
+        multi_zoom_plot=True,
+        sample_number=0,
     ):
         """Fits variogram models to the experimental variogram."""
         # extract experimental variogram values
@@ -370,9 +420,18 @@ class Variogram:
         # evaluate models
         xi = np.linspace(0, xdata[-1], 100)
 
-        y_exp = [models.exponential(h, v1.parameters[0], v1.parameters[1], v1.parameters[2]) for h in xi]
-        y_gauss = [models.gaussian(h, v2.parameters[0], v2.parameters[1], v2.parameters[2]) for h in xi]
-        y_sph = [models.spherical(h, v3.parameters[0], v3.parameters[1], v3.parameters[2]) for h in xi]
+        y_exp = [
+            models.exponential(h, v1.parameters[0], v1.parameters[1], v1.parameters[2])
+            for h in xi
+        ]
+        y_gauss = [
+            models.gaussian(h, v2.parameters[0], v2.parameters[1], v2.parameters[2])
+            for h in xi
+        ]
+        y_sph = [
+            models.spherical(h, v3.parameters[0], v3.parameters[1], v3.parameters[2])
+            for h in xi
+        ]
 
         # plot variogram models
         if multi_plot:
@@ -436,7 +495,10 @@ class MultispecAnalysis:
             dst_transform=temp_profile["transform"],
             dst_crs=temp_profile["crs"],
             resampling=Resampling.nearest,
-            dst_resolution=(temp_profile["transform"][0], -temp_profile["transform"][4]),
+            dst_resolution=(
+                temp_profile["transform"][0],
+                -temp_profile["transform"][4],
+            ),
         )
 
         # Calculate T_max and T_min
@@ -450,7 +512,9 @@ class MultispecAnalysis:
         tvdi[np.isnan(tvdi)] = -9999
 
         # Adjusting TVDI range to 0-255 for storing as unsigned 8-bit integer
-        tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(np.uint8)
+        tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(
+            np.uint8
+        )
 
         # Plot TVDI
         plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
@@ -473,7 +537,9 @@ class MultispecAnalysis:
 
 class TdrAnalysis:
 
-    FIELD_PATHS = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx")
+    FIELD_PATHS = glob.glob(
+        "D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx"
+    )
 
     def __init__(self, field_paths=FIELD_PATHS, sample_number=0):
         """Initialisation of the TDR field data"""
@@ -550,7 +616,14 @@ class TdrAnalysis:
 
         plt.figure(figsize=(8, 6))
         plt.plot(dates, median_evolution, marker="o", label="Mean")
-        plt.fill_between(dates, variance_lower, variance_upper, color="gray", alpha=0.5, label="Variance")
+        plt.fill_between(
+            dates,
+            variance_lower,
+            variance_upper,
+            color="gray",
+            alpha=0.5,
+            label="Variance",
+        )
         plt.xlabel("Date")
         plt.ylabel("VWC [/]")
         plt.title(f"Evolution of TDR derived Volumetric Water Content - {field_name}")
@@ -564,7 +637,9 @@ class TdrAnalysis:
 
 class GptTdr:
 
-    FIELD_PATHS = glob.glob("D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx")
+    FIELD_PATHS = glob.glob(
+        "D:/Cours bioingé/BIR M2/Mémoire/Data/VWC verification/*.xlsx"
+    )
 
     def __init__(self, field_paths=FIELD_PATHS, sample_number=0):
         """Initialisation of the TDR field data"""
@@ -636,7 +711,14 @@ class GptTdr:
 
         plt.figure(figsize=(8, 6))
         plt.plot(dates, median_evolution, marker="o", label="Mean")
-        plt.fill_between(dates, variance_lower, variance_upper, color="gray", alpha=0.5, label="Variance")
+        plt.fill_between(
+            dates,
+            variance_lower,
+            variance_upper,
+            color="gray",
+            alpha=0.5,
+            label="Variance",
+        )
         plt.xlabel("Date")
         plt.ylabel("VWC [/]")
         plt.title(f"Evolution of TDR derived Volumetric Water Content - {field_name}")
@@ -683,7 +765,7 @@ class Rainfall:
 
         if plot:
             plt.figure(figsize=(8, 6))
-            plt.bar(f_precipitations.index, f_precipitations.values, align='center')
+            plt.bar(f_precipitations.index, f_precipitations.values, align="center")
             plt.xlabel("Date")
             plt.ylabel("Precipitation [mm]")
             plt.title(f"Evolution of Rainfall Precipitation")
@@ -693,6 +775,7 @@ class Rainfall:
             plt.grid(True)
             plt.legend()
             plt.show()
-            
+
+
 rf1 = Rainfall()
 rf1.plot_data()
