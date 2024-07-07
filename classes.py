@@ -255,7 +255,6 @@ class GprAnalysis:
         """
         Ordinary Kriging interpolation
         x_grid_step and y_grid_step are the step size of the grid in meters
-
         """
 
         studied_field = self.import_data()[self.sample_number]
@@ -269,9 +268,27 @@ class GprAnalysis:
         x_min, x_max = min(utm_x), max(utm_x)
         y_min, y_max = min(utm_y), max(utm_y)
 
-        grid_x = np.arange(x_min, x_max, x_grid_step)  # Adjust the step size as needed
-        grid_y = np.arange(y_min, y_max, y_grid_step)  # Adjust the step size as needed
+        grid_x = np.arange(x_min, x_max, 1)
+        # Adjust the step size as needed
+        grid_y = np.arange(y_min, y_max, 1)
+        # Adjust the step size as needed
 
+        polygon_coords = np.array(
+            [[-25, 100], [125, -25], [225, -25], [225, 125], [90, 225], [-25, 100]]
+        )
+
+        # Create a mask for the polygon
+        polygon = path.Path(polygon_coords)
+        mask = []
+        for y in grid_y:
+            mask.append([])
+            for x in grid_x:
+                if not polygon.contains_point((y, x)):
+                    mask[int(y)].append(True)
+                else:
+                    mask[int(y)].append(False)
+        mask = np.array(mask)
+        # Execute the interpolation
         ordinary_kriging = OrdinaryKriging(
             utm_x,
             utm_y,
@@ -282,7 +299,7 @@ class GprAnalysis:
         )
 
         z, ss = ordinary_kriging.execute(
-            "grid", grid_x, grid_y
+            "masked", grid_x, grid_y, mask=mask
         )  # Execute the interpolation
 
         z_grid = np.transpose(z)  # Transpose the result to match the grid shape
@@ -301,8 +318,6 @@ class GprAnalysis:
             plt.title(
                 f"Kriging Interpolation - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
             )
-            # plt.xlim(x_min, x_max)
-            # plt.ylim(y_min, y_max)
             plt.grid(False)
             plt.show()
 
