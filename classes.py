@@ -582,7 +582,6 @@ class TdrAnalysis:
         tdr_analysis = TdrAnalysis()
 
         # Plot for Field A
-        print(field_b_data)
         tdr_analysis.plot_data(field_a_median, field_a_sd_median, "Field A")
 
         # Plot for Field B
