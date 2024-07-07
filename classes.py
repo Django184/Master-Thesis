@@ -758,17 +758,37 @@ class Rainfall:
         f_dates = pd.to_datetime(pd.Series(dates), format="%Y-%m-%d")
         f_precipitations = pd.Series(precipitations, index=f_dates)
 
+        # Add a smooth curve of the evolution of precipitation
+        rolling_window = 10  # Adjust this value to control the smoothing
+        smoothed_precipitations = f_precipitations.rolling(
+            window=rolling_window,
+            min_periods=1,
+            center=True,
+        ).mean()
+
         if plot:
-            plt.figure(figsize=(8, 6))
-            plt.bar(f_precipitations.index, f_precipitations.values, align="center")
-            plt.xlabel("Date")
-            plt.ylabel("Precipitation [mm]")
-            plt.title(f"Evolution of Rainfall Precipitation")
-            plt.xticks(rotation=45)
-            plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
-            plt.ylim(0, 40)
-            plt.grid(True)
-            plt.legend()
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.bar(
+                f_dates,
+                f_precipitations.values,
+                align="center",
+                alpha=0.5,
+                color="cornflowerblue",
+            )
+            ax.plot(
+                smoothed_precipitations.index,
+                smoothed_precipitations.values,
+                color="firebrick",
+                linewidth=2,
+            )
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Precipitation [mm]")
+            ax.set_title(f"Evolution of Rainfall Precipitation")
+            ax.xaxis.set_major_locator(plt.MaxNLocator(12))
+            ax.set_ylim(0, 40)
+            ax.grid(True)
+            ax.legend()
+            fig.tight_layout()
             plt.show()
 
 
