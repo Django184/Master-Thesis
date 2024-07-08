@@ -16,8 +16,8 @@ import skgstat as skg
 import glob
 from shapely.geometry import Polygon
 
-FIELD_A_PATHS = glob.glob("Data/Drone GPR/Field A/*.txt")
-FIELD_B_PATHS = glob.glob("Data/Drone GPR/Field B/*.txt")
+FIELD_A_PATHS = sorted(glob.glob("Data/Drone GPR/Field A/*.txt"))
+FIELD_B_PATHS = sorted(glob.glob("Data/Drone GPR/Field B/*.txt"))
 
 
 class GprAnalysis:
@@ -144,6 +144,95 @@ class GprAnalysis:
             plt.legend()
             plt.show()
 
+    def zonal_check(self):
+        if self.field_letter == "A":
+            polygon_coords = np.array(
+                [[0, 50], [150, 200], [75, 250], [0, 200], [0, 50]]
+            )
+        else:
+            polygon_coords = np.array(
+                [[30, 50], [140, 125], [140, 200], [0, 200], [0, 125], [30, 50]]
+            )
+        polygon = path.Path(polygon_coords)
+        self.plot_raw_data_by_zone(polygon)
+
+        upper_evolution = []
+        lower_evolution = []
+        for data in self.import_data():
+            upper_zone = []
+            lower_zone = []
+            utm_x, utm_y = self.convert_to_utm(data["x"].values, data["y"].values)
+            for x, y, vwc in zip(utm_x, utm_y, data["vwc"]):
+                if polygon.contains_point((x, y)):
+                    upper_zone.append(vwc)
+                else:
+                    lower_zone.append(vwc)
+
+            upper_evolution.append(np.median(upper_zone))
+            lower_evolution.append(np.median(lower_zone))
+
+        dates = pd.to_datetime(
+            self.extract_dates(), format="%d/%m/%Y"
+        )  # Convert dates to datetime objects
+        plt.figure(figsize=(8, 6))
+        plt.plot(dates, upper_evolution, marker="o", label="Zone 1")
+        plt.plot(dates, lower_evolution, marker="o", label="Zone 2")
+        plt.xlabel("Date")
+        plt.ylabel("VWC [/]")
+        plt.title(
+            f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})"
+        )
+        plt.xticks(rotation=45)
+        plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
+    def plot_raw_data_by_zone(self, zone_1):
+        """Plot the raw GPR data"""
+        # Read csv file
+        studied_field = self.import_data()[self.sample_number]
+
+        # Convert latitude and longitude to UTM coordinates
+        utm_x, utm_y = self.convert_to_utm(
+            studied_field["x"].values, studied_field["y"].values
+        )
+        zone_1_x = []
+        zone_1_y = []
+        zone_1_vwc = []
+        zone_2_x = []
+        zone_2_y = []
+        zone_2_vwc = []
+        for x, y, i in zip(utm_x, utm_y, range(len(utm_x))):
+            if zone_1.contains_point((x, y)):
+                zone_1_x.append(x)
+                zone_1_y.append(y)
+                zone_1_vwc.append(studied_field["vwc"].values[i])
+            else:
+                zone_2_x.append(x)
+                zone_2_y.append(y)
+                zone_2_vwc.append(studied_field["vwc"].values[i])
+        # Plot the raw data
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(
+            zone_1_x, zone_1_y, c=zone_1_vwc, cmap="viridis_r", label="Raw data"
+        )
+        scatter2 = plt.scatter(
+            zone_2_x, zone_2_y, c=zone_2_vwc, cmap="BrBG_r", label="Raw data"
+        )
+        plt.xlabel("X [m]")
+        plt.ylabel("Y [m]")
+        plt.title(
+            f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
+        )
+        cb = plt.colorbar(scatter)
+        cb.set_label("Zone 1 Volumetric Water Content [/]")
+        cb = plt.colorbar(scatter2)
+        cb.set_label("Zone 2 Volumetric Water Content [/]")
+        plt.grid(False)
+        plt.legend()
+        plt.show()
+
     def kriging(self, plot=True):
         """
         Ordinary Kriging interpolation
@@ -156,9 +245,9 @@ class GprAnalysis:
         )
 
         # Define your prediction grid
-        x_min, x_max = min(utm_x), max(utm_x)
-        y_min, y_max = min(utm_y), max(utm_y)
-
+        x_min, x_max = 0, 200.0
+        y_min, y_max = 0, 200.0
+        # Adjust the step size as needed
         grid_x = np.arange(x_min, x_max, 1)
         # Adjust the step size as needed
         grid_y = np.arange(y_min, y_max, 1)
@@ -608,4 +697,4 @@ class Rainfall:
 
 
 test = GprAnalysis()
-test.plot_raw_data()
+# test.plot_raw_data()
