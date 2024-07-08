@@ -620,9 +620,9 @@ class Terros_Piezo:
             plt.plot(vwc_daily_median.index, vwc_daily_median[col], label=col)
         
         plt.xlabel('Time (days)')
-        plt.ylabel('Median VWC')
+        plt.ylabel('VWC')
         plt.legend(loc='upper left')
-        plt.title('Daily Median VWC Evolution')
+        plt.title('Terros - VWC')
         plt.show()
 
     def plot_piezo_evolution(self):
@@ -641,9 +641,9 @@ class Terros_Piezo:
             plt.plot(piezo_daily_median.index, piezo_daily_median[col], label=col)
     
         plt.xlabel('Time (days)')
-        plt.ylabel('Median Piezo')
+        plt.ylabel('Water table [?]')
         plt.legend(loc='upper left')
-        plt.title('Daily Median Piezo Evolution')
+        plt.title(' Piezo - Water Table')
         plt.show()
     
     def plot_sampler_locations(self):
@@ -666,13 +666,6 @@ class Terros_Piezo:
         plt.show()
 
     
-
-
-    
-
-# Example usage
-terros_piezo = Terros_Piezo()
-terros_piezo.plot_sampler_locations()
 
 
 
