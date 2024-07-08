@@ -15,6 +15,7 @@ import rasterio
 import skgstat as skg
 import glob
 from shapely.geometry import Polygon
+import seaborn as sns
 
 FIELD_A_PATHS = glob.glob("Data/Drone GPR/Field A/*.txt")
 FIELD_B_PATHS = glob.glob("Data/Drone GPR/Field B/*.txt")
@@ -570,22 +571,109 @@ class Rainfall:
             plt.show()
 
 
-# class Terros_Piezo:
-#     COORD_PATH = "Data/Teros Piezo/coordonnees.xlsx"
-#     DATA_PATH = "Data/Teros Piezo/data-final.csv"
-#     def __init__(self, paths=[COORD_PATH, DATA_PATH]):
-#         """Initialisation of the Terros Piezo field data"""
-#         self.paths = paths
+class Terros_Piezo:
+    COORD_PATH = "Data/Teros Piezo/coordonnees.xlsx"
+    DATA_PATH = "Data/Teros Piezo/terros_piezo.csv"
 
-#     def import_excel(self, paths=[COORD_PATH, DATA_PATH]):
-#         """Importation of the raifall field data"""
-#         terros_piezo_data = []
-#         for path in self.paths:
-#             data_frame = pd.read_excel(path)  # read excel file
-#             terros_piezo_data.append(data_frame)
+    def __init__(self, paths=[COORD_PATH, DATA_PATH]):
+        """Initialization of the Terros Piezo field data"""
+        self.paths = paths
+        self.sampler_coords = self.import_coordinates()
+        self.data = self.import_vwc_values()
+
+    def import_coordinates(self):
+        """Importation of the coordinates of the Terros Piezo"""
+        coord = pd.read_excel(self.COORD_PATH)
+        sampler_coords = coord.set_index("Sampler")[["North", "East"]]
+        return sampler_coords
+
+    def import_vwc_values(self):
+        """Importation of the Terros Piezo field data"""
+        data = pd.read_csv(self.DATA_PATH, parse_dates=['Dates (hours)'])
+        return data
+
+    def get_vwc_data(self):
+        """Get the VWC data for the Terros samples"""
+        vwc_columns = [col for col in self.data.columns if col.startswith('T_')]
+        vwc_data = self.data[vwc_columns]
+        return vwc_data
+
+    def get_piezo_data(self):
+        """Get the piezo data for the water table samples"""
+        piezo_columns = [col for col in self.data.columns if col.startswith('P_')]
+        piezo_data = self.data[piezo_columns]
+        return piezo_data
+
+    def plot_vwc_evolution(self):
+        # Ensure the 'Dates (hours)' column is set as the index
+        self.data.set_index('Dates (hours)', inplace=True)
+        
+        # Select the columns of interest
+        vwc_columns = [col for col in self.data.columns if col.startswith('T_')]
+
+        # Resample the data by day and calculate the median VWC
+        vwc_daily_median = self.data[vwc_columns].resample('D').median()
+
+        # Plot the median evolution of VWC over time
+        plt.figure(figsize=(12, 8))
+        for col in vwc_columns:
+            plt.plot(vwc_daily_median.index, vwc_daily_median[col], label=col)
+        
+        plt.xlabel('Time (days)')
+        plt.ylabel('Median VWC')
+        plt.legend(loc='upper left')
+        plt.title('Daily Median VWC Evolution')
+        plt.show()
+
+    def plot_piezo_evolution(self):
+        # Ensure the 'Dates (hours)' column is set as the index
+        self.data.set_index('Dates (hours)', inplace=True)
+    
+        # Select the columns of interest
+        piezo_columns = [col for col in self.data.columns if col.startswith('P_')]
+    
+        # Resample the data by day and calculate the median piezo
+        piezo_daily_median = self.data[piezo_columns].resample('D').median()
+    
+        # Plot the median evolution of piezo over time
+        plt.figure(figsize=(12, 8))
+        for col in piezo_columns:
+            plt.plot(piezo_daily_median.index, piezo_daily_median[col], label=col)
+    
+        plt.xlabel('Time (days)')
+        plt.ylabel('Median Piezo')
+        plt.legend(loc='upper left')
+        plt.title('Daily Median Piezo Evolution')
+        plt.show()
+    
+    def plot_sampler_locations(self):
+        """Plot the locations of the different samplers with more distinctive colors"""
+        plt.figure(figsize=(10, 6))
+        
+        # Assign more distinctive colors based on sampler names using the 'tab20' colormap
+        unique_samplers = self.sampler_coords.index.unique()
+        colors = plt.cm.tab20(np.linspace(0, 1, len(unique_samplers)))
+        
+        for i, sampler_name in enumerate(unique_samplers):
+            sampler_data = self.sampler_coords.loc[sampler_name]
+            plt.scatter(sampler_data['East'], sampler_data['North'], color=colors[i], marker='^', label=sampler_name)
+        
+        plt.xlabel('East Coordinate')
+        plt.ylabel('North Coordinate')
+        plt.title('Sampler Locations')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+    
 
 
-#         return terros_piezo_data
+    
 
-# test = Terros_Piezo()
-# print(test.import_excel())
+# Example usage
+terros_piezo = Terros_Piezo()
+terros_piezo.plot_sampler_locations()
+
+
+
+
