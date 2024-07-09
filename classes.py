@@ -345,6 +345,7 @@ class GprAnalysis:
                 gpr_vwc_median.append(0)
 
         tdr_vwcs = list(tdr_data["vwc"].values)
+        tdr_sds = list(tdr_data["sd"].values)
         for i in range(len(gpr_vwc_median) - 1, -1, -1):
             if gpr_vwc_median[i] == 0:
                 tdr_vwcs[i], tdr_vwcs[-1] = tdr_vwcs[-1], tdr_vwcs[i]
@@ -352,8 +353,10 @@ class GprAnalysis:
                     gpr_vwc_median[-1],
                     gpr_vwc_median[i],
                 )
+                tdr_sds[i], tdr_sds[-1] = tdr_sds[-1], tdr_sds[i]
                 gpr_vwc_median.pop()
                 tdr_vwcs.pop()
+                tdr_sds.pop()
 
         date = self.extract_dates()[self.sample_number]
 
@@ -364,7 +367,7 @@ class GprAnalysis:
         multiplier = 0
 
         for attribute, measurement, sd in zip(
-            ["GPR", "TDR"], [gpr_vwc_median, tdr_vwcs], [0, tdr_data["sd"].values]
+            ["GPR", "TDR"], [gpr_vwc_median, tdr_vwcs], [0, tdr_sds]
         ):
             offset = width * multiplier
             plt.bar(x + offset, measurement, width, label=attribute, yerr=sd)
@@ -956,4 +959,3 @@ class MultispecAnalysis:
         c = 20
         d = 250
         return c * ndvi + d
-
