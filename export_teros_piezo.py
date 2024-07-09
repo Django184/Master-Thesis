@@ -29,16 +29,16 @@ output_data = pd.DataFrame(columns=columns)
 
 # Extract the required columns and assign them to the new DataFrame
 output_data["Dates (hours)"] = data["Time"]
-output_data["T_LS1A"] = data[["LS1A10.VWC", "LS1A30.VWC", "LS1A80.VWC"]].median(axis=1)
-output_data["T_LS1B"] = data[["LS1B10.VWC", "LS1B30.VWC", "LS1B80.VWC"]].median(axis=1)
-output_data["T_LS2A"] = data[["LS2A10.VWC", "LS2A30.VWC", "LS2A50.VWC"]].median(axis=1)
-output_data["T_LS2B"] = data[["LS2B10.VWC", "LS2B30.VWC", "LS2B50.VWC"]].median(axis=1)
-output_data["T_LS3A"] = data[["LS3A10.VWC", "LS3A30.VWC", "LS3A90.VWC"]].median(axis=1)
-output_data["T_LS3B"] = data[["LS3B10.VWC", "LS3B30.VWC", "LS3B90.VWC"]].median(axis=1)
-output_data["T_LS4A"] = data[["LS4A10.VWC", "LS4A30.VWC", "LS4A55.VWC"]].median(axis=1)
-output_data["T_LS4B"] = data[["LS4B10.VWC", "LS4B30.VWC", "LS4B55.VWC"]].median(axis=1)
-output_data["T_LS5A"] = data[["LS5A10.VWC", "LS5A30.VWC", "LS5A60.VWC"]].median(axis=1)
-output_data["T_LS5B"] = data[["LS5B10.VWC", "LS5B30.VWC", "LS5B60.VWC"]].median(axis=1)
+output_data["T_LS1A"] = data[["LS1A10.VWC", "LS1A30.VWC"]].median(axis=1)
+output_data["T_LS1B"] = data[["LS1B10.VWC", "LS1B30.VWC"]].median(axis=1)
+output_data["T_LS2A"] = data[["LS2A10.VWC", "LS2A30.VWC"]].median(axis=1)
+output_data["T_LS2B"] = data[["LS2B10.VWC", "LS2B30.VWC"]].median(axis=1)
+output_data["T_LS3A"] = data[["LS3A10.VWC", "LS3A30.VWC"]].median(axis=1)
+output_data["T_LS3B"] = data[["LS3B10.VWC", "LS3B30.VWC"]].median(axis=1)
+output_data["T_LS4A"] = data[["LS4A10.VWC", "LS4A30.VWC"]].median(axis=1)
+output_data["T_LS4B"] = data[["LS4B10.VWC", "LS4B30.VWC"]].median(axis=1)
+output_data["T_LS5A"] = data[["LS5A10.VWC", "LS5A30.VWC"]].median(axis=1)
+output_data["T_LS5B"] = data[["LS5B10.VWC", "LS5B30.VWC"]].median(axis=1)
 output_data["P_LS1"] = data["LS1.Temp"]
 output_data["P_LS2"] = data["LS2.Temp"]
 output_data["P_LS3"] = data["LS3.Temp"]

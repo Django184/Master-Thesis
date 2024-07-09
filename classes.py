@@ -384,10 +384,10 @@ class GprAnalysis:
         # Plot the raw data
         plt.figure(figsize=(10, 6))
         scatter = plt.scatter(
-            tdr_xs, tdr_ys, c=tdr_data["vwc"], cmap="Reds", label="Tdr", marker="s"
+            tdr_xs, tdr_ys, c=tdr_data["vwc"], cmap="Reds", label="TDR", marker="s"
         )
         scatter2 = plt.scatter(
-            gpr_xs, gpr_ys, c=gpr_data["vwc"], cmap="viridis_r", label="Gpr"
+            gpr_xs, gpr_ys, c=gpr_data["vwc"], cmap="viridis_r", label="GPR"
         )
         plt.xlabel("X [m]")
         plt.ylabel("Y [m]")
@@ -557,99 +557,99 @@ class Variogram:
 TDR_PATHS = sorted(glob.glob("data/VWC verification/*.xlsx"))
 
 
-class TdrAnalysis:
-    def __init__(self, field_paths=TDR_PATHS, sample_number=0):
-        """Initialisation of the TDR field data"""
-        self.field_paths = field_paths
-        self.sample_number = sample_number
+# class TdrAnalysis:
+#     def __init__(self, field_paths=TDR_PATHS, sample_number=0):
+#         """Initialisation of the TDR field data"""
+#         self.field_paths = field_paths
+#         self.sample_number = sample_number
 
-    def import_data(self):
-        """Importation of the TDR field data"""
-        tdr_data_table = []
-        for tdr_path in self.field_paths:
-            data_frame = pd.read_excel(tdr_path)  # read excel file
-            tdr_data_table.append(data_frame)
+#     def import_data(self):
+#         """Importation of the TDR field data"""
+#         tdr_data_table = []
+#         for tdr_path in self.field_paths:
+#             data_frame = pd.read_excel(tdr_path)  # read excel file
+#             tdr_data_table.append(data_frame)
 
-        return tdr_data_table
+#         return tdr_data_table
 
-    def extract_dates(self):
-        """Dates extraction from files names"""
-        dates = []
-        for tdr_path in self.field_paths:
-            file_name = os.path.basename(tdr_path)
-            file_name_without_extension = os.path.splitext(file_name)[0]
-            date = (
-                file_name_without_extension[12:14]
-                + "/"
-                + file_name_without_extension[9:11]
-                + "/"
-                + "20"
-                + file_name_without_extension[6:8]
-            )
-            dates.append(date)
+#     def extract_dates(self):
+#         """Dates extraction from files names"""
+#         dates = []
+#         for tdr_path in self.field_paths:
+#             file_name = os.path.basename(tdr_path)
+#             file_name_without_extension = os.path.splitext(file_name)[0]
+#             date = (
+#                 file_name_without_extension[12:14]
+#                 + "/"
+#                 + file_name_without_extension[9:11]
+#                 + "/"
+#                 + "20"
+#                 + file_name_without_extension[6:8]
+#             )
+#             dates.append(date)
 
-        return dates
+#         return dates
 
-    def plot_tdr_evolution(self, plot=True):
-        """TDR median data plot"""
-        studied_field = self.import_data()
+#     def plot_tdr_evolution(self, plot=True):
+#         """TDR median data plot"""
+#         studied_field = self.import_data()
 
-        # Separate data for fields A and B based on latitude
-        field_a_median = []
-        field_b_median = []
-        field_a_sd_median = []
-        field_b_sd_median = []
-        for table in studied_field:
-            field_a_data = []
-            field_a_sd = []
-            field_b_data = []
-            field_b_sd = []
-            for index, lat in enumerate(table["Lat"].values):
-                if lat < 50.496773:
-                    field_a_data.append(table["VWC"].values[index])
-                    field_a_sd.append(table["sd"].values[index])
-                else:
-                    field_b_data.append(table["VWC"].values[index])
-                    field_b_sd.append(table["sd"].values[index])
-            field_a_median.append(np.median(field_a_data))
-            field_a_sd_median.append(np.median(field_a_sd))
-            field_b_median.append(np.median(field_b_data))
-            field_b_sd_median.append(np.median(field_b_sd))
-        # Create an instance of TdrAnalysis
-        tdr_analysis = TdrAnalysis()
+#         # Separate data for fields A and B based on latitude
+#         field_a_median = []
+#         field_b_median = []
+#         field_a_sd_median = []
+#         field_b_sd_median = []
+#         for table in studied_field:
+#             field_a_data = []
+#             field_a_sd = []
+#             field_b_data = []
+#             field_b_sd = []
+#             for index, lat in enumerate(table["Lat"].values):
+#                 if lat < 50.496773:
+#                     field_a_data.append(table["VWC"].values[index])
+#                     field_a_sd.append(table["sd"].values[index])
+#                 else:
+#                     field_b_data.append(table["VWC"].values[index])
+#                     field_b_sd.append(table["sd"].values[index])
+#             field_a_median.append(np.median(field_a_data))
+#             field_a_sd_median.append(np.median(field_a_sd))
+#             field_b_median.append(np.median(field_b_data))
+#             field_b_sd_median.append(np.median(field_b_sd))
+#         # Create an instance of TdrAnalysis
+#         tdr_analysis = TdrAnalysis()
 
-        # Plot for Field A
-        tdr_analysis.plot_data(field_a_median, field_a_sd_median, "Field A")
+#         # Plot for Field A
+#         tdr_analysis.plot_data(field_a_median, field_a_sd_median, "Field A")
 
-        # Plot for Field B
-        tdr_analysis.plot_data(field_b_median, field_b_sd_median, "Field B")
+#         # Plot for Field B
+#         tdr_analysis.plot_data(field_b_median, field_b_sd_median, "Field B")
 
-    def plot_data(self, medians, sds, field_name):
-        """TDR median data plot"""
-        variance_upper = [median + sds[i] for i, median in enumerate(medians)]
-        variance_lower = [median - sds[i] for i, median in enumerate(medians)]
+#     def plot_data(self, medians, sds, field_name):
+#         """TDR median data plot"""
+#         variance_upper = [median + sds[i] for i, median in enumerate(medians)]
+#         variance_lower = [median - sds[i] for i, median in enumerate(medians)]
 
-        dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")
+#         dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")
 
-        plt.figure(figsize=(8, 6))
-        plt.plot(dates, medians, marker="o", label="Mean")
-        plt.fill_between(
-            dates,
-            variance_lower,
-            variance_upper,
-            color="gray",
-            alpha=0.5,
-            label="Variance",
-        )
-        plt.xlabel("Date")
-        plt.ylabel("VWC [/]")
-        plt.title(f"TDR derived Volumetric Water Content - {field_name}")
-        plt.xticks(rotation=45)
-        plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
-        plt.ylim(0.45, 0.95)
-        plt.grid(True)
-        plt.legend()
-        plt.show()
+#         plt.figure(figsize=(8, 6))
+#         plt.plot(dates, medians, marker="o", label="Mean")
+#         plt.fill_between(
+#             dates,
+#             variance_lower,
+#             variance_upper,
+#             color="gray",
+#             alpha=0.5,
+#             label="Variance",
+#         )
+#         plt.xlabel("Date")
+#         plt.ylabel("VWC [/]")
+#         plt.title(f"TDR derived Volumetric Water Content - {field_name}")
+#         plt.xticks(rotation=45)
+#         plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
+#         plt.ylim(0.45, 0.95)
+#         plt.grid(True)
+#         plt.legend()
+#         plt.show()
 
 
 class Rainfall:
@@ -740,12 +740,6 @@ class Teros:
         """Importation of the Teros Piezo field data"""
         data = pd.read_csv(self.DATA_PATH, parse_dates=["Dates (hours)"])
         return data
-
-    def get_vwc_data(self):
-        """Get the VWC data for the Teros samples"""
-        vwc_columns = [col for col in self.data.columns if col.startswith("T_")]
-        vwc_data = self.data[vwc_columns]
-        return vwc_data
 
     def plot_vwc_evolution(self):
         # Ensure the 'Dates (hours)' column is set as the index
