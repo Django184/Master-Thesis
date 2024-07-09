@@ -17,6 +17,8 @@ import glob
 from shapely.geometry import Polygon
 import seaborn as sns
 from scipy.spatial import distance as dist
+import contextily as cx
+
 
 
 GPR_A_PATHS = sorted(glob.glob("Data/Drone GPR/Field A/*.txt"))
@@ -376,7 +378,7 @@ class GprAnalysis:
         # Add some text for labels, title and custom x-axis tick labels, etc.
         plt.ylabel("VWC [/]")
         plt.xlabel("TDR verification points")
-        plt.title("Vérification TDR - {}".format(date))
+        plt.title(f"GPR and TDR derived VWC comparison - ({date})")
         plt.xticks(rotation=45)
         plt.legend(loc="upper left", ncols=2)
         plt.ylim(0, 1.15)
@@ -421,7 +423,7 @@ class Variogram:
 
         self.gpr_analysis = GprAnalysis(field_letter, sample_number)
 
-    def determ_experimental_vario(self, maxlag=30, n_lags=200, solo_plot=True):
+    def determ_experimental_vario(self, maxlag=30, n_lags=50, solo_plot=True):
         """
         Determine the experimental variogram model
         Parameters:
@@ -482,7 +484,7 @@ class Variogram:
     def fit_models(
         self,
         maxlag=30,
-        n_lags=200,
+        n_lags=50,
         solo_plot=False,
         multi_plot=True,
         multi_zoom_plot=True,
@@ -556,100 +558,6 @@ class Variogram:
 
 TDR_PATHS = sorted(glob.glob("data/VWC verification/*.xlsx"))
 
-
-# class TdrAnalysis:
-#     def __init__(self, field_paths=TDR_PATHS, sample_number=0):
-#         """Initialisation of the TDR field data"""
-#         self.field_paths = field_paths
-#         self.sample_number = sample_number
-
-#     def import_data(self):
-#         """Importation of the TDR field data"""
-#         tdr_data_table = []
-#         for tdr_path in self.field_paths:
-#             data_frame = pd.read_excel(tdr_path)  # read excel file
-#             tdr_data_table.append(data_frame)
-
-#         return tdr_data_table
-
-#     def extract_dates(self):
-#         """Dates extraction from files names"""
-#         dates = []
-#         for tdr_path in self.field_paths:
-#             file_name = os.path.basename(tdr_path)
-#             file_name_without_extension = os.path.splitext(file_name)[0]
-#             date = (
-#                 file_name_without_extension[12:14]
-#                 + "/"
-#                 + file_name_without_extension[9:11]
-#                 + "/"
-#                 + "20"
-#                 + file_name_without_extension[6:8]
-#             )
-#             dates.append(date)
-
-#         return dates
-
-#     def plot_tdr_evolution(self, plot=True):
-#         """TDR median data plot"""
-#         studied_field = self.import_data()
-
-#         # Separate data for fields A and B based on latitude
-#         field_a_median = []
-#         field_b_median = []
-#         field_a_sd_median = []
-#         field_b_sd_median = []
-#         for table in studied_field:
-#             field_a_data = []
-#             field_a_sd = []
-#             field_b_data = []
-#             field_b_sd = []
-#             for index, lat in enumerate(table["Lat"].values):
-#                 if lat < 50.496773:
-#                     field_a_data.append(table["VWC"].values[index])
-#                     field_a_sd.append(table["sd"].values[index])
-#                 else:
-#                     field_b_data.append(table["VWC"].values[index])
-#                     field_b_sd.append(table["sd"].values[index])
-#             field_a_median.append(np.median(field_a_data))
-#             field_a_sd_median.append(np.median(field_a_sd))
-#             field_b_median.append(np.median(field_b_data))
-#             field_b_sd_median.append(np.median(field_b_sd))
-#         # Create an instance of TdrAnalysis
-#         tdr_analysis = TdrAnalysis()
-
-#         # Plot for Field A
-#         tdr_analysis.plot_data(field_a_median, field_a_sd_median, "Field A")
-
-#         # Plot for Field B
-#         tdr_analysis.plot_data(field_b_median, field_b_sd_median, "Field B")
-
-#     def plot_data(self, medians, sds, field_name):
-#         """TDR median data plot"""
-#         variance_upper = [median + sds[i] for i, median in enumerate(medians)]
-#         variance_lower = [median - sds[i] for i, median in enumerate(medians)]
-
-#         dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")
-
-#         plt.figure(figsize=(8, 6))
-#         plt.plot(dates, medians, marker="o", label="Mean")
-#         plt.fill_between(
-#             dates,
-#             variance_lower,
-#             variance_upper,
-#             color="gray",
-#             alpha=0.5,
-#             label="Variance",
-#         )
-#         plt.xlabel("Date")
-#         plt.ylabel("VWC [/]")
-#         plt.title(f"TDR derived Volumetric Water Content - {field_name}")
-#         plt.xticks(rotation=45)
-#         plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
-#         plt.ylim(0.45, 0.95)
-#         plt.grid(True)
-#         plt.legend()
-#         plt.show()
 
 
 class Rainfall:
@@ -764,7 +672,8 @@ class Teros:
 
     def plot_piezo_sampler_locations(self):
         """Plot the locations of the different samplers with more distinctive colors"""
-        plt.figure(figsize=(10, 6))
+        fig= plt.figure(figsize=(10, 6)) # Create a figure and axis
+        ax = fig.add_subplot(111)  # Create an axis
 
         # Filter samplers for A or B field data
         field_samplers = self.sampler_coords[
@@ -789,6 +698,9 @@ class Teros:
         plt.legend()
         plt.grid(True)
         plt.show()
+
+        # # Add background map with WGS84 CRS
+        # cx.add_basemap(ax, crs="EPSG:4326", source=cx.providers.OpenStreetMap.Mapnik)
 
 
 class WaterTable:
@@ -953,3 +865,5 @@ class MultispecAnalysis:
         c = 20
         d = 250
         return c * ndvi + d
+
+Teros().plot_piezo_sampler_locations()

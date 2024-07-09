@@ -17,3 +17,6 @@ MULTISPECTRAL
 
 Terro + piezo -> mask du terrain pour l'avoir en arrière plan
 
+Est il interessant de mettre les graphes de moyennes de GPR en sublot des méthodes de vérification ?
+
+
