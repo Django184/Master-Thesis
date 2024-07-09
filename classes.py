@@ -717,29 +717,29 @@ class Rainfall:
             plt.show()
 
 
-class Terros:
+class Teros:
     COORD_PATH = "Data/Teros Piezo/coordonnees.xlsx"
     DATA_PATH = "Data/Teros Piezo/terros_piezo.csv"
 
     def __init__(self, paths=[COORD_PATH, DATA_PATH]):
-        """Initialization of the Terros Piezo field data"""
+        """Initialization of the Teros Piezo field data"""
         self.paths = paths
         self.sampler_coords = self.import_coordinates()
         self.data = self.import_vwc_values()
 
     def import_coordinates(self):
-        """Importation of the coordinates of the Terros Piezo"""
+        """Importation of the coordinates of the Teros Piezo"""
         coord = pd.read_excel(self.COORD_PATH)
         sampler_coords = coord.set_index("Sampler")[["North", "East"]]
         return sampler_coords
 
     def import_vwc_values(self):
-        """Importation of the Terros Piezo field data"""
+        """Importation of the Teros Piezo field data"""
         data = pd.read_csv(self.DATA_PATH, parse_dates=["Dates (hours)"])
         return data
 
     def get_vwc_data(self):
-        """Get the VWC data for the Terros samples"""
+        """Get the VWC data for the Teros samples"""
         vwc_columns = [col for col in self.data.columns if col.startswith("T_")]
         vwc_data = self.data[vwc_columns]
         return vwc_data
@@ -762,7 +762,7 @@ class Terros:
         plt.xlabel("Time (days)")
         plt.ylabel("VWC")
         plt.legend(loc="upper left")
-        plt.title("Terros - VWC")
+        plt.title("Teros - VWC")
         plt.show()
 
     def plot_piezo_sampler_locations(self):
@@ -812,7 +812,7 @@ class WaterTable:
         return wt_data, wt_coord
 
     def import_coordinates(self):
-        """Importation of the coordinates of the Terros Piezo"""
+        """Importation of the coordinates of the Teros Piezo"""
         coord = pd.read_excel(self.coord_path)
         sampler_coords = coord.set_index("Sampler")[["North", "East"]]
         return sampler_coords

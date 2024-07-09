@@ -46,7 +46,7 @@ output_data["P_LS4"] = data["LS4.Temp"]
 output_data["P_LS5"] = data["LS5.Temp"]
 
 # Save the new DataFrame to an Excel file
-output_file = "terros_piezo.csv"
+output_file = "teros_piezo.csv"
 output_data.to_csv(output_file, index=False)
 
 print(f"Data has been successfully extracted to {output_file}")
