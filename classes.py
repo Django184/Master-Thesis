@@ -719,7 +719,7 @@ class Rainfall:
 
 class Teros:
     COORD_PATH = "Data/Teros Piezo/coordonnees.xlsx"
-    DATA_PATH = "Data/Teros Piezo/terros_piezo.csv"
+    DATA_PATH = "Data/Teros Piezo/teros_piezo.csv"
 
     def __init__(self, paths=[COORD_PATH, DATA_PATH]):
         """Initialization of the Teros Piezo field data"""
@@ -957,6 +957,3 @@ class MultispecAnalysis:
         d = 250
         return c * ndvi + d
 
-
-multi_test = MultispecAnalysis()
-multi_test.calculate_tvdi()
