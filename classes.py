@@ -412,74 +412,6 @@ class Variogram:
             plt.show()
 
 
-class MultispecAnalysis:
-    TEMPERATURE_RASTER = "Data/multispectral/thermal/MR20240205_georeferenced_thermal_cali.tif"
-    NDVI_RASTER = "Data/multispectral/NDVI/MR20230719_georeferenced_multi_ndvi.tif"
-
-    def __init__(self, temperature_raster=TEMPERATURE_RASTER, ndvi_raster=NDVI_RASTER):
-        self.temperature_raster = temperature_raster
-        self.ndvi_raster = ndvi_raster
-
-    def calculate_tvdi(self):
-        """Calculate TVDI"""
-        # Read temperature raster
-        with rasterio.open(self.temperature_raster) as temp_src:
-            temperature = temp_src.read(1)
-            temp_profile = temp_src.profile
-
-        # Read NDVI raster
-        with rasterio.open(self.ndvi_raster) as ndvi_src:
-            ndvi = ndvi_src.read(1)
-            ndvi_profile = ndvi_src.profile
-
-        # Resample NDVI to match temperature raster dimensions
-        ndvi_resampled = np.zeros_like(temperature)
-        reproject(
-            ndvi,
-            ndvi_resampled,
-            src_transform=ndvi_src.transform,
-            src_crs=ndvi_src.crs,
-            dst_transform=temp_profile["transform"],
-            dst_crs=temp_profile["crs"],
-            resampling=Resampling.nearest,
-            dst_resolution=(
-                temp_profile["transform"][0],
-                -temp_profile["transform"][4],
-            ),
-        )
-
-        # Calculate T_max and T_min
-        t_max_values = self.t_max(ndvi_resampled)
-        t_min_values = self.t_min(ndvi_resampled)
-
-        # Calculate TVDI
-        tvdi = (temperature - t_min_values) / (t_max_values - t_min_values)
-
-        # Set nodata value to -9999
-        tvdi[np.isnan(tvdi)] = -9999
-
-        # Adjusting TVDI range to 0-255 for storing as unsigned 8-bit integer
-        tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(np.uint8)
-
-        # Plot TVDI
-        plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
-        plt.colorbar(label="TVDI")
-        plt.title("Temperature Vegetation Dryness Index (TVDI)")
-        plt.show()
-
-    def t_max(self, ndvi):
-        """Placeholder coefficients for T_max(NDVI) = a * NDVI + b"""
-        a = 40
-        b = 300
-        return a * ndvi + b
-
-    def t_min(self, ndvi):
-        """Placeholder coefficients for T_min(NDVI) = c * NDVI + d"""
-        c = 20
-        d = 250
-        return c * ndvi + d
-
-
 class TdrAnalysis:
     FIELD_PATHS = glob.glob("Data/VWC verification/*.xlsx")
 
@@ -786,3 +718,91 @@ class WaterTable:
         plt.legend()
         plt.grid(True)
         plt.show()
+
+
+class MultispecAnalysis:
+    TEMPERATURE_RASTER = glob.glob("Data/Multispectral/thermal/*.tif")
+    NDVI_RASTER = glob.glob("Data/Multispectral/NDVI/*.tif")
+
+    def __init__(self, temperature_raster=TEMPERATURE_RASTER, ndvi_raster=NDVI_RASTER, sample_number=1):
+        self.temperature_raster = temperature_raster
+        self.ndvi_raster = ndvi_raster
+        self.sample_number = sample_number
+
+    def import_rasters(self):
+        # Open the temperature raster for the specified sample number
+        with rasterio.open(self.temperature_raster[self.sample_number]) as temp_src:
+            # Read the raster values
+            temperature = temp_src.read(1)
+            # Read the raster profile (metadata)
+            temp_profile = temp_src.profile
+
+        # Open the NDVI raster for the specified sample number
+        with rasterio.open(self.ndvi_raster[self.sample_number]) as ndvi_src:
+            # Read the raster values
+            ndvi = ndvi_src.read(1)
+            # Read the raster profile (metadata)
+            ndvi_profile = ndvi_src.profile
+        return temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src
+
+    def calculate_tvdi(self):
+        temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src = self.import_rasters()
+
+        # Resample the NDVI raster to match the temperature raster's dimensions
+        ndvi_resampled = np.zeros_like(temperature)
+        # Reproject the NDVI raster to match the temperature raster's dimensions
+        # by using the 'reproject' function from rasterio.warp module.
+        # The 'ndvi' array is the source raster, 'ndvi_resampled' is the destination array.
+        # 'ndvi_src.transform' and 'ndvi_src.crs' are the metadata of the source raster.
+        # 'temp_profile["transform"]' and 'temp_profile["crs"]' are the metadata of the destination raster.
+        # 'Resampling.nearest' specifies the resampling method. The 'dst_resolution' parameter
+        # sets the resolution of the destination raster.
+        reproject(
+            ndvi,
+            ndvi_resampled,
+            src_transform=ndvi_src.transform,
+            src_crs=ndvi_src.crs,
+            dst_transform=temp_profile["transform"],
+            dst_crs=temp_profile["crs"],
+            resampling=Resampling.nearest,
+            dst_resolution=(
+                temp_profile["transform"][0],
+                -temp_profile["transform"][4],
+            ),
+        )
+
+        # Calculate the maximum temperature for the given NDVI value
+        t_max_values = self.t_max(ndvi_resampled)
+        # Calculate the minimum temperature for the given NDVI value
+        t_min_values = self.t_min(ndvi_resampled)
+
+        # Calculate the TVDI (Temperature Vegetation Dryness Index)
+        tvdi = (temperature - t_min_values) / (t_max_values - t_min_values)
+
+        # Set the nodata value to -9999
+        tvdi[np.isnan(tvdi)] = -9999
+
+        # Adjust the TVDI range to 0-255 for storage as an unsigned 8-bit integer
+        tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(np.uint8)
+
+        # Plot the TVDI
+        plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
+        plt.colorbar(label="TVDI")
+        plt.title("Temperature Vegetation Dryness Index (TVDI)")
+        plt.show()
+
+    def t_max(self, ndvi):
+        """Placeholder coefficients for T_max(NDVI) = a * NDVI + b"""
+        a = 40
+        b = 300
+        return a * ndvi + b
+
+    def t_min(self, ndvi):
+        """Placeholder coefficients for T_min(NDVI) = c * NDVI + d"""
+        c = 20
+        d = 250
+        return c * ndvi + d
+
+
+multi_test = MultispecAnalysis()
+multi_test.calculate_tvdi()

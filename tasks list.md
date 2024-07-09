@@ -12,8 +12,6 @@ MULTISPECTRAL
 
 - tdr vwc comparatif spatial
 
-- sampler location modifier les noms  (terros piezo)
-
 - courbe de pluies -> via GPR 
     - comparaison with nape and captor
 - prendre les relevés sur place pour voir une tendance moyenne - > nappe (piezo) et  Teros : vwc (profondeur)
