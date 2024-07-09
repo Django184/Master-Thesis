@@ -16,9 +16,11 @@ import skgstat as skg
 import glob
 from shapely.geometry import Polygon
 import seaborn as sns
+from scipy.spatial import distance as dist
 
-FIELD_A_PATHS = sorted(glob.glob("Data/Drone GPR/Field A/*.txt"))
-FIELD_B_PATHS = sorted(glob.glob("Data/Drone GPR/Field B/*.txt"))
+
+GPR_A_PATHS = sorted(glob.glob("Data/Drone GPR/Field A/*.txt"))
+GPR_B_PATHS = sorted(glob.glob("Data/Drone GPR/Field B/*.txt"))
 
 
 class GprAnalysis:
@@ -31,9 +33,9 @@ class GprAnalysis:
         self.sample_number = sample_number
 
         if self.field_letter == "A":
-            self.field_paths = FIELD_A_PATHS
+            self.field_paths = GPR_A_PATHS
         elif self.field_letter == "B":
-            self.field_paths = FIELD_B_PATHS
+            self.field_paths = GPR_B_PATHS
         else:
             raise ValueError("field_letter must be either A or B")
 
@@ -245,14 +247,15 @@ class GprAnalysis:
         utm_x, utm_y = self.convert_to_utm(
             studied_field["x"].values, studied_field["y"].values
         )
-
+        resolution = 5
         # Define your prediction grid
         x_min, x_max = 0, 250.0
         y_min, y_max = 0, 250.0
+        step_size = 1
         # Adjust the step size as needed
-        grid_x = np.arange(x_min, x_max, 1)
+        grid_x = np.arange(x_min, x_max, step_size)
         # Adjust the step size as needed
-        grid_y = np.arange(y_min, y_max, 1)
+        grid_y = np.arange(y_min, y_max, step_size)
         # Adjust the step size as needed
 
         # Define the mask polygon coordinates
@@ -262,7 +265,7 @@ class GprAnalysis:
         xlim, ylim = 200, 250
         if self.field_letter == "B":
             polygon_coords = np.array(
-                [[65, 0], [150, 75], [90, 175], [0, 125], [65, 0]]
+                [[70, 0], [150, 75], [90, 175], [10, 130], [70, 0]]
             )
             xlim, ylim = 150, 175
 
@@ -273,9 +276,9 @@ class GprAnalysis:
             mask.append([])
             for x in grid_x:
                 if not polygon.contains_point((x, y)):
-                    mask[int(y)].append(True)
+                    mask[int(y / step_size)].append(True)
                 else:
-                    mask[int(y)].append(False)
+                    mask[int(y / step_size)].append(False)
         mask = np.array(mask)
         # Execute the interpolation
         ordinary_kriging = OrdinaryKriging(
@@ -311,6 +314,89 @@ class GprAnalysis:
             plt.grid(False)
             plt.show()
 
+    def import_tdr_data(self):
+        tdr_data_AB = pd.read_excel(TDR_PATHS[self.sample_number - 3])
+        tdr_data = []
+        if self.field_letter == "A":
+            tdr_data = tdr_data_AB[tdr_data_AB["Lat"].values < 50.496773]
+        else:
+            tdr_data = tdr_data_AB[tdr_data_AB["Lat"].values >= 50.496773]
+        tdr_data.columns = ["y", "x", "vwc", "sd"]
+        return tdr_data
+
+    def tdr_verification(self, verification_radius=10):
+        """
+        Performs TDR verification based on the given sample number (3-9)
+        """
+        gpr_data = self.import_data()[self.sample_number]
+        tdr_data = self.import_tdr_data()
+
+        tdr_xs, tdr_ys = self.convert_to_utm(tdr_data["x"].values, tdr_data["y"].values)
+        gpr_xs, gpr_ys = self.convert_to_utm(gpr_data["x"].values, gpr_data["y"].values)
+        gpr_vwc_median = []
+        for tdr_x, tdr_y in zip(tdr_xs, tdr_ys):
+            gpr_vwcs = []
+            for gpr_x, gpr_y, gpr_vwc in zip(gpr_xs, gpr_ys, gpr_data["vwc"].values):
+                if dist.euclidean((gpr_x, gpr_y), (tdr_x, tdr_y)) < verification_radius:
+                    gpr_vwcs.append(gpr_vwc)
+            if len(gpr_vwcs) > 0:
+                gpr_vwc_median.append(np.median(gpr_vwcs))
+            else:
+                gpr_vwc_median.append(0)
+
+        tdr_vwcs = list(tdr_data["vwc"].values)
+        for i in range(len(gpr_vwc_median) - 1, -1, -1):
+            if gpr_vwc_median[i] == 0:
+                tdr_vwcs[i], tdr_vwcs[-1] = tdr_vwcs[-1], tdr_vwcs[i]
+                gpr_vwc_median[i], gpr_vwc_median[-1] = (
+                    gpr_vwc_median[-1],
+                    gpr_vwc_median[i],
+                )
+                gpr_vwc_median.pop()
+                tdr_vwcs.pop()
+
+        date = self.extract_dates()[self.sample_number]
+
+        plt.figure(figsize=(10, 6))
+
+        x = np.arange(len(gpr_vwc_median))  # the label locations
+        width = 0.25  # the width of the bars
+        multiplier = 0
+
+        for attribute, measurement, sd in zip(["GPR", "TDR"], [gpr_vwc_median, tdr_vwcs], [0, tdr_data["sd"].values]):
+            offset = width * multiplier
+            plt.bar(x + offset, measurement, width, label=attribute, yerr=sd)
+            multiplier += 1
+
+        # Add some text for labels, title and custom x-axis tick labels, etc.
+        plt.ylabel("VWC [/]")
+        plt.xlabel("TDR verification points")
+        plt.title("Vérification TDR - {}".format(date))
+        plt.xticks(rotation=45)
+        plt.legend(loc="upper left", ncols=2)
+        plt.ylim(0, 1.15)
+        plt.show()
+        # Plot the raw data
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(
+            tdr_xs, tdr_ys, c=tdr_data["vwc"], cmap="Reds", label="Tdr", marker="s"
+        )
+        scatter2 = plt.scatter(
+            gpr_xs, gpr_ys, c=gpr_data["vwc"], cmap="viridis_r", label="Gpr"
+        )
+        plt.xlabel("X [m]")
+        plt.ylabel("Y [m]")
+        plt.title(
+            f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
+        )
+        cb = plt.colorbar(scatter)
+        cb.set_label("GBR Volumetric Water Content [/]")
+        cb = plt.colorbar(scatter2)
+        cb.set_label("GBR Volumetric Water Content [/]")
+        plt.grid(False)
+        plt.legend()
+        plt.show()
+
 
 class Variogram:
     """Variogram creation and fitting"""
@@ -322,9 +408,9 @@ class Variogram:
         self.sample_number = sample_number
 
         if field_letter == "A":
-            self.field_paths = FIELD_A_PATHS
+            self.field_paths = GPR_A_PATHS
         elif field_letter == "B":
-            self.field_paths = FIELD_B_PATHS
+            self.field_paths = GPR_B_PATHS
         else:
             raise ValueError("field_letter must be either A or B")
 
@@ -535,10 +621,11 @@ class MultispecAnalysis:
         return c * ndvi + d
 
 
-class TdrAnalysis:
-    FIELD_PATHS = glob.glob("Data/VWC verification/*.xlsx")
+TDR_PATHS = sorted(glob.glob("Data/VWC verification/*.xlsx"))
 
-    def __init__(self, field_paths=FIELD_PATHS, sample_number=0):
+
+class TdrAnalysis:
+    def __init__(self, field_paths=TDR_PATHS, sample_number=0):
         """Initialisation of the TDR field data"""
         self.field_paths = field_paths
         self.sample_number = sample_number
