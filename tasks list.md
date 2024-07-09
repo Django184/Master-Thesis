@@ -1,10 +1,16 @@
 # Tasks List
 MULTISPECTRAL
     - Sample number + units and graph units on multispectral and dates
-    - optram and TVDI
+    - optram and TVDI + indices différents
+    - temprature de sol dans le fichier data-final.csv
     - Crop
     - Zonal check
     - median evolution
+
+
+- données de terrain sur drive pour topo and co
+
+- tdr vwc comparatif spatial
 
 - courbe de pluies -> via GPR 
     - comparaison with nape and captor
