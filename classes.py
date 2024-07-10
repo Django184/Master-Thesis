@@ -866,4 +866,4 @@ class MultispecAnalysis:
         d = 250
         return c * ndvi + d
 
-Teros().plot_piezo_sampler_locations()
+# Teros().plot_piezo_sampler_locations()
