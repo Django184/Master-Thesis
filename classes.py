@@ -20,7 +20,6 @@ from scipy.spatial import distance as dist
 import contextily as cx
 
 
-
 GPR_A_PATHS = sorted(glob.glob("Data/Drone GPR/Field A/*.txt"))
 GPR_B_PATHS = sorted(glob.glob("Data/Drone GPR/Field B/*.txt"))
 
@@ -559,7 +558,6 @@ class Variogram:
 TDR_PATHS = sorted(glob.glob("data/VWC verification/*.xlsx"))
 
 
-
 class Rainfall:
     PATHS = glob.glob("Data/Météo/*.xlsx")
 
@@ -672,7 +670,7 @@ class Teros:
 
     def plot_piezo_sampler_locations(self):
         """Plot the locations of the different samplers with more distinctive colors"""
-        fig= plt.figure(figsize=(10, 6)) # Create a figure and axis
+        fig = plt.figure(figsize=(10, 6))  # Create a figure and axis
         ax = fig.add_subplot(111)  # Create an axis
 
         # Filter samplers for A or B field data
@@ -783,10 +781,12 @@ class MultispecAnalysis:
         temperature_raster=TEMPERATURE_RASTER,
         ndvi_raster=NDVI_RASTER,
         sample_number=1,
+        field_letter="A",
     ):
         self.temperature_raster = temperature_raster
         self.ndvi_raster = ndvi_raster
         self.sample_number = sample_number
+        self.field_letter = field_letter
 
     def import_rasters(self):
         # Open the temperature raster for the specified sample number
@@ -848,7 +848,16 @@ class MultispecAnalysis:
             np.uint8
         )
 
+        polygon_coords = np.array(
+            [[3100, 4800], [4550, 3400], [3550, 2350], [2530, 3400], [3100, 4800]]
+        )
+        if self.field_letter == "B":
+            polygon_coords = np.array(
+                [[2530, 3400], [3550, 2350], [3350, 2150], [3550, 1950], [3000, 1000], [1700, 1300], [2530, 3400]]
+            )
+        polygon = path.Path(polygon_coords)
         # Plot the TVDI
+        plt.gca().add_patch(patches.PathPatch(polygon, fill=False, linewidth=2, color="grey"))
         plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
         plt.colorbar(label="TVDI")
         plt.title("Temperature Vegetation Dryness Index (TVDI)")
@@ -865,5 +874,6 @@ class MultispecAnalysis:
         c = 20
         d = 250
         return c * ndvi + d
+
 
 # Teros().plot_piezo_sampler_locations()
