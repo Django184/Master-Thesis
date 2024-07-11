@@ -180,12 +180,12 @@ class GprAnalysis:
             self.extract_dates(), format="%d/%m/%Y"
         )  # Convert dates to datetime objects
         plt.figure(figsize=(8, 6))
-        plt.plot(dates, upper_evolution, marker="o", label="Zone 1")
-        plt.plot(dates, lower_evolution, marker="o", label="Zone 2")
+        plt.plot(dates, upper_evolution, marker="o", label="Zone 2")
+        plt.plot(dates, lower_evolution, marker="o", label="Zone 1")
         plt.xlabel("Date")
         plt.ylabel("VWC [/]")
         plt.title(
-            f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})"
+            f"Evolution of GPR derived VWC  - (Field {self.field_letter})"
         )
         plt.xticks(rotation=45)
         plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
@@ -228,12 +228,12 @@ class GprAnalysis:
         plt.xlabel("X [m]")
         plt.ylabel("Y [m]")
         plt.title(
-            f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
+            f"GPR sampling by zone - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
         )
         cb = plt.colorbar(scatter)
-        cb.set_label("Zone 1 Volumetric Water Content [/]")
-        cb = plt.colorbar(scatter2)
         cb.set_label("Zone 2 Volumetric Water Content [/]")
+        cb = plt.colorbar(scatter2)
+        cb.set_label("Zone 1 Volumetric Water Content [/]")
         plt.grid(False)
         plt.legend()
         plt.show()
@@ -385,7 +385,7 @@ class GprAnalysis:
         # Plot the raw data
         plt.figure(figsize=(10, 6))
         scatter = plt.scatter(
-            tdr_xs, tdr_ys, c=tdr_data["vwc"], cmap="Reds", label="TDR", marker="s"
+            tdr_xs, tdr_ys, c="red", label="TDR", marker="s"
         )
         scatter2 = plt.scatter(
             gpr_xs, gpr_ys, c=gpr_data["vwc"], cmap="viridis_r", label="GPR"
@@ -395,8 +395,8 @@ class GprAnalysis:
         plt.title(
             f"GPR sampling - Field {self.field_letter} ({self.extract_dates()[self.sample_number]})"
         )
-        cb = plt.colorbar(scatter)
-        cb.set_label("GBR Volumetric Water Content [/]")
+        # cb = plt.colorbar(scatter)
+        # cb.set_label("GBR Volumetric Water Content [/]")
         cb = plt.colorbar(scatter2)
         cb.set_label("GBR Volumetric Water Content [/]")
         plt.grid(False)
