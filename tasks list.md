@@ -2,7 +2,7 @@
 MULTISPECTRAL
     - Sample number + units and graph units on multispectral and dates
     - optram and TVDI + indices différents
-    - temprature de sol dans le fichier data-final.csv
+    - temperature de sol dans le fichier data-final.csv
     - Crop
     - Zonal check
     - median evolution
@@ -17,6 +17,6 @@ MULTISPECTRAL
 
 Terro + piezo -> mask du terrain pour l'avoir en arrière plan
 
-Est il interessant de mettre les graphes de moyennes de GPR en sublot des méthodes de vérification ?
+Est il interessant de mettre les graphes de moyennes de GPR en subplot des méthodes de vérification ?
 
 
