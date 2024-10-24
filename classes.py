@@ -806,6 +806,3 @@ class MultispecAnalysis:
         c = 20
         d = 250
         return c * ndvi + d
-
-
-
