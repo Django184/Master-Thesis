@@ -726,7 +726,7 @@ class Rainfall:
             ax.set_title(f"Rainfall Precipitations - Mont Rigi (May 2023 - Feb 2024)")
             ax.xaxis.set_major_locator(plt.MaxNLocator(12))
             ax.set_ylim(0, 40)
-            ax.grid(True)
+            # ax.grid(True)
             plt.xticks(rotation=45)
             ax.legend()
             fig.tight_layout()
@@ -1011,32 +1011,39 @@ class MultispecAnalysis:
         # Mask areas where the temperature is below a certain threshold (e.g., -100°C)
         temperature[temperature < -100] = np.nan
 
-        # Calculate the median temperature for the raster
-        temperature_median = np.nanmedian(temperature, axis=(0, 1))
-
-        # Extract the dates for each sample
-        dates = self.extract_dates()
-        date_index = pd.to_datetime(dates, format="%d/%m/%Y")
-
-        # Create an instance of the GprAnalysis class and calculate the median GPR-derived VWC
-        gpr_analysis = GprAnalysis(field_letter=self.field_letter, sample_number=self.sample_number)
-        gpr_median, gpr_mean = gpr_analysis.plot_mean_median(plot=False)  # Get GPR mean and median values
-
-        # Plotting the correlation between median temperature and median GPR VWC
-        plt.figure(figsize=(10, 6))
-        plt.scatter(gpr_median, [temperature_median] * len(gpr_median), c="blue", label="Median Temp vs GPR VWC")
-        plt.title("Correlation between GPR VWC and Temperature - Field {}".format(self.field_letter))
-        plt.xlabel("GPR Median Volumetric Water Content [VWC]")
-        plt.ylabel("Median Temperature [°C]")
-        plt.grid(True)
-        plt.legend()
+        # Plot the temperature
+        plt.figure(figsize=(10, 10))
+        plt.imshow(temperature, cmap="inferno")
+        plt.colorbar()
+        plt.title("Temperature of the study site (04/07/2023)")
         plt.show()
 
-        # Optional: Compute the correlation coefficient
-        correlation = np.corrcoef(gpr_median, [temperature_median] * len(gpr_median))[0, 1]
-        print(f"Correlation coefficient: {correlation}")
+        # # Calculate the median temperature for the raster
+        # temperature_median = np.nanmedian(temperature, axis=(0, 1))
 
-        return gpr_median, temperature_median, correlation
+        # # Extract the dates for each sample
+        # dates = self.extract_dates()
+        # date_index = pd.to_datetime(dates, format="%d/%m/%Y")
+
+        # # Create an instance of the GprAnalysis class and calculate the median GPR-derived VWC
+        # gpr_analysis = GprAnalysis(field_letter=self.field_letter, sample_number=self.sample_number)
+        # gpr_median, gpr_mean = gpr_analysis.plot_mean_median(plot=False)  # Get GPR mean and median values
+
+        # # Plotting the correlation between median temperature and median GPR VWC
+        # plt.figure(figsize=(10, 6))
+        # plt.scatter(gpr_median, [temperature_median] * len(gpr_median), c="blue", label="Median Temp vs GPR VWC")
+        # plt.title("Correlation between GPR VWC and Temperature - Field {}".format(self.field_letter))
+        # plt.xlabel("GPR Median Volumetric Water Content [VWC]")
+        # plt.ylabel("Median Temperature [°C]")
+        # plt.grid(True)
+        # plt.legend()
+        # plt.show()
+
+        # Optional: Compute the correlation coefficient
+        # correlation = np.corrcoef(gpr_median, [temperature_median] * len(gpr_median))[0, 1]
+        # print(f"Correlation coefficient: {correlation}")
+
+        # return gpr_median, temperature_median, correlation
         # # Calculate the correlation between the evolution of temperature and the evolution of GPR-derived water content
         # correlation = np.corrcoef(temperature_median, gpr_median)[0, 1]
 
