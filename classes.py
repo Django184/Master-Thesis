@@ -502,7 +502,7 @@ class GprAnalysis:
         )
         plt.xlabel("GPR Median VWC", labelpad=10)
         plt.ylabel("TDR Median VWC")
-        plt.title(f"Correlation between GPR and TDR VWC - Field {self.field_letter}")
+        plt.title(f"Correlation between GPR and TDR VWC - Field {self.field_letter} (May 2023 - Feb 2024)")
         plt.grid(True)
         plt.legend()
 
@@ -966,6 +966,7 @@ class MultispecAnalysis:
                 [[2530, 3400], [3550, 2350], [3350, 2150], [3550, 1950], [3000, 1000], [1700, 1300], [2530, 3400]]
             )
         polygon = path.Path(polygon_coords)
+
         # Plot the TVDI
         plt.gca().add_patch(patches.PathPatch(polygon, fill=False, linewidth=2, color="grey"))
         plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
@@ -985,6 +986,81 @@ class MultispecAnalysis:
         d = 250
         return c * ndvi + d
 
+    def extract_dates(self):
+        """Dates extraction from files names"""
+        dates = []
+        for temp_path in self.temperature_raster:
+            file_name = os.path.basename(temp_path)
+            file_name_without_extension = os.path.splitext(file_name)[0]
+            date = (
+                file_name_without_extension[8:10]
+                + "/"
+                + file_name_without_extension[6:8]
+                + "/"
+                + "20"
+                + file_name_without_extension[4:6]
+            )
+            dates.append(date)
 
-# Gpr_data = GprAnalysis(field_letter="B", sample_number=6)
-# Gpr_data.correlate_gpr_tdr()
+        return dates
+
+    def calculate_evolution(self):
+        # Import temperature raster data and extract temperature for the current sample number
+        temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src = self.import_rasters()
+
+        # Mask areas where the temperature is below a certain threshold (e.g., -100°C)
+        temperature[temperature < -100] = np.nan
+
+        # Calculate the median temperature for the raster
+        temperature_median = np.nanmedian(temperature, axis=(0, 1))
+
+        # Extract the dates for each sample
+        dates = self.extract_dates()
+        date_index = pd.to_datetime(dates, format="%d/%m/%Y")
+
+        # Create an instance of the GprAnalysis class and calculate the median GPR-derived VWC
+        gpr_analysis = GprAnalysis(field_letter=self.field_letter, sample_number=self.sample_number)
+        gpr_median, gpr_mean = gpr_analysis.plot_mean_median(plot=False)  # Get GPR mean and median values
+
+        # Plotting the correlation between median temperature and median GPR VWC
+        plt.figure(figsize=(10, 6))
+        plt.scatter(gpr_median, [temperature_median] * len(gpr_median), c="blue", label="Median Temp vs GPR VWC")
+        plt.title("Correlation between GPR VWC and Temperature - Field {}".format(self.field_letter))
+        plt.xlabel("GPR Median Volumetric Water Content [VWC]")
+        plt.ylabel("Median Temperature [°C]")
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
+        # Optional: Compute the correlation coefficient
+        correlation = np.corrcoef(gpr_median, [temperature_median] * len(gpr_median))[0, 1]
+        print(f"Correlation coefficient: {correlation}")
+
+        return gpr_median, temperature_median, correlation
+        # # Calculate the correlation between the evolution of temperature and the evolution of GPR-derived water content
+        # correlation = np.corrcoef(temperature_median, gpr_median)[0, 1]
+
+        # # Calculate the median temperature for each date
+        # date_index = pd.to_datetime(temp_src.tags()['TIFFTAG_DATETIME'], format="%Y:%m:%d %H:%M:%S").date()
+        # temperature_median = np.nanmedian(temperature, axis=(0, 1))
+
+        # # Plot the median temperature over time
+        # plt.figure(figsize=(10, 6))
+        # plt.plot(date_index, temperature_median, marker='o')
+        # plt.xlabel('Date')
+        # plt.ylabel('Median Temperature (C)')
+        # plt.title('Median Temperature Evolution')
+        # plt.xticks(rotation=45)
+        # plt.grid(True)
+        # plt.show()
+
+        # # Plot the temperature between -5 and 25 degrees
+        # plt.imshow(temperature, cmap="jet")
+        # plt.colorbar(label="Temperature (C)")
+        # plt.title("Temperature")
+        # plt.ylim()
+        # plt.show()
+        # # Plot the NDVI
+
+
+print(MultispecAnalysis(sample_number=3).calculate_evolution())
