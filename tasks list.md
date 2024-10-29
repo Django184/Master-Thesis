@@ -19,4 +19,6 @@ Terro + piezo -> mask du terrain pour l'avoir en arrière plan
 
 Est il interessant de mettre les graphes de moyennes de GPR en subplot des méthodes de vérification ?
 
+Droite de correlation entre terros et GPR :
+    - prendre la médiannedes VWC des GPR et les comparer avec les VWC de TEROS
 

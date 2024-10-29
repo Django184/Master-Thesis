@@ -17,7 +17,9 @@ import glob
 from shapely.geometry import Polygon
 import seaborn as sns
 from scipy.spatial import distance as dist
+import scipy.stats
 import contextily as cx
+from sklearn.metrics import r2_score
 
 
 GPR_A_PATHS = sorted(glob.glob("Data/Drone GPR/Field A/*.txt"))
@@ -129,13 +131,17 @@ class GprAnalysis:
             plt.plot(dates, mean_evolution, marker="o", label="Mean")
             plt.xlabel("Date")
             plt.ylabel("VWC [/]")
-            plt.title(f"Evolution of GPR derived Volumetric Water Content - (Field {self.field_letter})")
+            plt.title(
+                f"Evolution of GPR derived Volumetric Water Content - Field {self.field_letter} (May 2023 - Feb 2024)"
+            )
             plt.xticks(rotation=45)
             plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
             # plt.ylim(0.2, 0.5)
             plt.grid(True)
             plt.legend()
             plt.show()
+
+        return mean_evolution, median_evolution
 
     def zonal_check(self):
         if self.field_letter == "A":
@@ -166,7 +172,7 @@ class GprAnalysis:
         plt.plot(dates, lower_evolution, marker="o", label="Zone 1")
         plt.xlabel("Date")
         plt.ylabel("VWC [/]")
-        plt.title(f"Evolution of GPR derived VWC  - (Field {self.field_letter})")
+        plt.title(f"Evolution of GPR derived VWC by zone - Field {self.field_letter}")
         plt.xticks(rotation=45)
         plt.gca().xaxis.set_major_locator(plt.MaxNLocator(12))
         plt.grid(True)
@@ -337,7 +343,9 @@ class GprAnalysis:
         # Add some text for labels, title and custom x-axis tick labels, etc.
         plt.ylabel("VWC [/]")
         plt.xlabel("TDR verification points")
-        plt.title(f"GPR and TDR derived VWC comparison - ({date})")
+        plt.title(
+            f"GPR and TDR derived VWC zonal comparison (area = {verification_radius}m) - Field {self.field_letter} ({date})"
+        )
         plt.xticks(rotation=45)
         plt.legend(loc="upper left", ncols=2)
         plt.ylim(0, 1.15)
@@ -355,6 +363,164 @@ class GprAnalysis:
         cb.set_label("GBR Volumetric Water Content [/]")
         plt.grid(False)
         plt.legend()
+        plt.show()
+
+    def correlate_gpr_terros(self):
+        """
+        Plot the correlation between GPR derived Volumetric Water Content
+        mean and median values with Teros derived Volumetric Water Content
+        values.
+        """
+        gpr_mean, gpr_median = self.plot_mean_median(plot=False)
+        dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
+
+        terros_data = pd.read_csv("Data/Teros Piezo/teros_piezo.csv")
+        terros_data["Dates (hours)"] = pd.to_datetime(terros_data["Dates (hours)"], format="%Y-%m-%d %H:%M:%S")
+        terros_data["Date"] = terros_data["Dates (hours)"].dt.date
+
+        # Group by day and calculate median VWC values
+        terros_median = (
+            terros_data.groupby("Date")[
+                ["T_LS1A", "T_LS1B", "T_LS2A", "T_LS2B", "T_LS3A", "T_LS3B", "T_LS4A", "T_LS4B", "T_LS5A", "T_LS5B"]
+            ]
+            .median()
+            .mean(axis=1)
+        )
+
+        # Select only the dates that correspond to the GPR data dates
+        terros_median = terros_median[terros_median.index.isin(dates.date)]
+
+        # Convert gpr_median to numpy array
+        gpr_median = np.array(gpr_median)
+
+        # Use numpy.polyfit to fit a linear regression line
+        coefficients = np.polyfit(gpr_median, terros_median.values, 1)
+        slope, intercept = coefficients
+
+        print(f"y = {slope}x + {intercept}")
+
+        # Calculate R-squared
+        r2 = r2_score(terros_median.values, intercept + slope * gpr_median)
+
+        # Plot scatter plot and linear regression
+        plt.figure(figsize=(10, 5))
+        plt.scatter(gpr_median, terros_median.values, color="blue", label="Data points")
+        plt.plot(
+            gpr_median,
+            intercept + slope * gpr_median,
+            color="red",
+            label=f"Linear Fit: y = {slope:.2f}x + {intercept:.2f}",
+        )
+        plt.xlabel("GPR Median VWC", labelpad=10)
+        plt.ylabel("Teros Median VWC")
+        plt.title(f"Correlation between GPR and Terros derived VWC - Field {self.field_letter}")
+        plt.grid(True)
+        plt.legend()
+
+        # Add R-squared text annotation
+        plt.text(0.05, 0.95, f"R$^2$ = {r2:.2f}", transform=plt.gca().transAxes)
+
+        plt.show()
+
+        # Plot GPR and Terros VWC over time
+        plt.figure(figsize=(10, 5))
+        plt.plot(dates, gpr_median, "s-", color="green", label="GPR Median VWC")
+        plt.plot(dates, terros_median.values, "o-", color="purple", label="Teros Median VWC")
+        plt.xlabel("Date")
+        plt.ylabel("VWC")
+        plt.title(f"Evolution of GPR and Terros derived VWC - Field {self.field_letter} (May 2023 - Feb 2024)")
+        plt.legend()
+        plt.grid(True)
+        plt.gcf().autofmt_xdate()
+        plt.show()
+
+    def extract_tdr_dates(self):
+        """Dates extraction from TDR files names"""
+        dates = []
+        for tdr_path in TDR_PATHS:
+            file_name = os.path.basename(tdr_path)
+            file_name_without_extension = os.path.splitext(file_name)[0]
+            date = (
+                file_name_without_extension[-2:]
+                + "/"
+                + file_name_without_extension[-5:-3]
+                + "/"
+                + "20"
+                + file_name_without_extension[-8:-6]
+            )
+            dates.append(date)
+        return dates
+
+    def correlate_gpr_tdr(self):
+        """
+        Plot the correlation between GPR derived Volumetric Water Content
+        mean and median values with TDR derived Volumetric Water Content
+        values.
+        """
+        gpr_mean, gpr_median = self.plot_mean_median(plot=False)
+        dates = pd.to_datetime(self.extract_dates(), format="%d/%m/%Y")  # Convert dates to datetime objects
+
+        # Extract TDR data
+        tdr_data = []
+        for tdr_path in TDR_PATHS:
+            tdr_data.append(pd.read_excel(tdr_path))
+
+        tdr_dates = self.extract_tdr_dates()
+        tdr_dates = pd.to_datetime(tdr_dates, format="%d/%m/%Y")  # Convert dates to datetime objects
+
+        # Calculate median VWC values for each date
+        tdr_medians = []
+        for data in tdr_data:
+            if self.field_letter == "A":
+                tdr_medians.append(data[data["Lat"] < 50.496773]["VWC"].median())
+            else:
+                tdr_medians.append(data[data["Lat"] >= 50.496773]["VWC"].median())
+
+        # Convert gpr_median to numpy array
+        gpr_median = np.array(gpr_median)
+        tdr_medians = np.array(tdr_medians)
+
+        gpr_median_tdr_dates = gpr_median[dates.isin(tdr_dates)]
+
+        # Use numpy.polyfit to fit a linear regression line
+        coefficients = np.polyfit(gpr_median_tdr_dates, tdr_medians, 1)
+        slope, intercept = coefficients
+
+        print(f"y = {slope}x + {intercept}")
+
+        # Calculate R-squared
+        r2 = r2_score(tdr_medians, intercept + slope * gpr_median_tdr_dates)
+
+        # Plot scatter plot and linear regression
+        plt.figure(figsize=(10, 5))
+        plt.scatter(gpr_median_tdr_dates, tdr_medians, color="blue", label="Data points")
+        plt.plot(
+            gpr_median_tdr_dates,
+            intercept + slope * gpr_median_tdr_dates,
+            color="red",
+            label=f"Linear Fit: y = {slope:.2f}x + {intercept:.2f}",
+        )
+        plt.xlabel("GPR Median VWC", labelpad=10)
+        plt.ylabel("TDR Median VWC")
+        plt.title(f"Correlation between GPR and TDR VWC - Field {self.field_letter}")
+        plt.grid(True)
+        plt.legend()
+
+        # Add R-squared text annotation
+        plt.text(0.05, 0.95, f"R$^2$ = {r2:.2f}", transform=plt.gca().transAxes)
+
+        plt.show()
+
+        # Plot GPR and TDR VWC over time
+        plt.figure(figsize=(10, 5))
+        plt.plot(dates[: len(gpr_median_tdr_dates)], gpr_median_tdr_dates, "s-", color="green", label="GPR Median VWC")
+        plt.plot(dates[: len(tdr_medians)], tdr_medians, "o-", color="purple", label="TDR Median VWC")
+        plt.xlabel("Date")
+        plt.ylabel("VWC")
+        plt.title(f"Evolution of GPR and TDR derived VWC - Field {self.field_letter} (May 2023 - Feb 2024)")
+        plt.legend()
+        plt.grid(True)
+        plt.gcf().autofmt_xdate()
         plt.show()
 
 
@@ -557,7 +723,7 @@ class Rainfall:
             )
             ax.set_xlabel("Date")
             ax.set_ylabel("Precipitation [mm]")
-            ax.set_title(f"Rainfall Precipitations Mont Rigi 2023-2024")
+            ax.set_title(f"Rainfall Precipitations - Mont Rigi (May 2023 - Feb 2024)")
             ax.xaxis.set_major_locator(plt.MaxNLocator(12))
             ax.set_ylim(0, 40)
             ax.grid(True)
@@ -588,8 +754,17 @@ class Teros:
         data = pd.read_csv(self.DATA_PATH, parse_dates=["Dates (hours)"])
         return data
 
-    def plot_vwc_evolution(self):
+    def plot_vwc_evolution(self, plot=True):
         # Ensure the 'Dates (hours)' column is set as the index
+        """
+        Plot the median evolution of Volumetric Water Content (VWC) over time for
+        each of the Teros probes.
+
+        The 'Dates (hours)' column is used as the index and the median VWC is
+        calculated for each day.
+
+        The resulting plot shows the median VWC evolution over time for each probe.
+        """
         self.data.set_index("Dates (hours)", inplace=True)
 
         # Select the columns of interest
@@ -599,15 +774,18 @@ class Teros:
         vwc_daily_median = self.data[vwc_columns].resample("D").median()
 
         # Plot the median evolution of VWC over time
-        plt.figure(figsize=(12, 8))
-        for col in vwc_columns:
-            plt.plot(vwc_daily_median.index, vwc_daily_median[col], label=col)
+        if plot:
+            plt.figure(figsize=(12, 8))
+            for col in vwc_columns:
+                plt.plot(vwc_daily_median.index, vwc_daily_median[col], label=col)
 
-        plt.xlabel("Time (days)")
-        plt.ylabel("VWC")
-        plt.legend(loc="upper left")
-        plt.title("Teros - VWC")
-        plt.show()
+            plt.xlabel("Time (days)")
+            plt.ylabel("VWC")
+            plt.legend(loc="upper left")
+            plt.title("Teros - VWC")
+            plt.show()
+
+        return vwc_daily_median
 
     def plot_piezo_sampler_locations(self):
         """Plot the locations of the different samplers with more distinctive colors"""
@@ -806,3 +984,7 @@ class MultispecAnalysis:
         c = 20
         d = 250
         return c * ndvi + d
+
+
+# Gpr_data = GprAnalysis(field_letter="B", sample_number=6)
+# Gpr_data.correlate_gpr_tdr()
