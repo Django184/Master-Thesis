@@ -888,37 +888,146 @@ class WaterTable:
         plt.show()
 
 
-class MultispecAnalysis:
-    TEMPERATURE_RASTER = glob.glob("Data/Multispectral/thermal/*.tif")
-    NDVI_RASTER = glob.glob("Data/Multispectral/NDVI/*.tif")
+class Thermal:
+    TEMPERATURE_RASTER = glob.glob("Data/Thermal/*.tif")
+    pass
 
-    def __init__(
-        self,
-        temperature_raster=TEMPERATURE_RASTER,
-        ndvi_raster=NDVI_RASTER,
-        sample_number=1,
-        field_letter="A",
-    ):
-        self.temperature_raster = temperature_raster
-        self.ndvi_raster = ndvi_raster
+
+NDVI_RASTER = glob.glob("Data/Multispectral/NDVI/*.tif")
+BLUE_RASTER = glob.glob("Data/Multispectral/Blue/*.tif")
+GREEN_RASTER = glob.glob("Data/Multispectral/Green/*.tif")
+RED_RASTER = glob.glob("Data/Multispectral/Red/*.tif")
+NIR_RASTER = glob.glob("Data/Multispectral/NIR/*.tif")
+RED_EDGE_RASTER = glob.glob("Data/Multispectral/Rededge/*.tif")
+
+
+class MultispecAnalysis:
+    def __init__(self, raster=NDVI_RASTER, sample_number=0, field_letter="A"):
+        self.raster = raster
         self.sample_number = sample_number
         self.field_letter = field_letter
+        self.raster_paths = {
+            "ndvi": NDVI_RASTER,
+            "red": RED_RASTER,
+            "green": GREEN_RASTER,
+            "blue": BLUE_RASTER,
+            "nir": NIR_RASTER,
+            "red_edge": RED_EDGE_RASTER,
+        }
 
-    def import_rasters(self):
+    def import_raster(self, raster_path):
         # Open the temperature raster for the specified sample number
-        with rasterio.open(self.temperature_raster[self.sample_number]) as temp_src:
+        with rasterio.open(raster_path) as raster_src:
             # Read the raster values
-            temperature = temp_src.read(1)
+            raster_values = raster_src.read(1)  # In rasterio, band numbers are 1-indexed
             # Read the raster profile (metadata)
-            temp_profile = temp_src.profile
+            raster_profile = raster_src.profile
 
-        # Open the NDVI raster for the specified sample number
-        with rasterio.open(self.ndvi_raster[self.sample_number]) as ndvi_src:
-            # Read the raster values
-            ndvi = ndvi_src.read(1)
-            # Read the raster profile (metadata)
-            ndvi_profile = ndvi_src.profile
-        return temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src
+        return raster_src, raster_values, raster_profile
+
+    def extract_dates(self, raster_type):
+        """Dates extraction from files names"""
+        dates = []
+        for temp_path in self.raster_paths[raster_type]:
+            file_name = os.path.basename(temp_path)
+            file_name_without_extension = os.path.splitext(file_name)[0]
+            date = (
+                file_name_without_extension[8:10]
+                + "/"
+                + file_name_without_extension[6:8]
+                + "/"
+                + "20"
+                + file_name_without_extension[4:6]
+            )
+            dates.append(date)
+
+        return dates
+
+    def plot_rasters(
+        self, sample_number=0, ndvi=False, red=False, green=False, blue=False, nir=False, red_edge=False, ndwi=False
+    ):
+        if ndvi:
+            raster_path = self.raster_paths["ndvi"][sample_number]
+            dates = self.extract_dates("ndvi")
+            ndvi_src, ndvi_values, ndvi_profile = self.import_raster(raster_path)
+            ndvi_values[ndvi_values < -1] = np.nan
+            plt.imshow(ndvi_values, cmap="viridis")
+            plt.colorbar(label="NDVI")
+            plt.title(
+                f"Normalized Difference Vegetation Index (NDVI) - Field {self.field_letter} ({dates[sample_number]})"
+            )
+            plt.show()
+
+        if red:
+            raster_path = self.raster_paths["red"][sample_number]
+            dates = self.extract_dates("red")
+            red_src, red_values, red_profile = self.import_raster(raster_path)
+            red_values[red_values < 0] = np.nan
+            plt.imshow(red_values, cmap="viridis")
+            plt.colorbar(label="Red Band")
+            plt.title(f"Red Band - Field {self.field_letter} ({dates[sample_number]})")
+            plt.show()
+
+        if green:
+            raster_path = self.raster_paths["green"][sample_number]
+            dates = self.extract_dates("green")
+            green_src, green_values, green_profile = self.import_raster(raster_path)
+            green_values[green_values < 0] = np.nan
+            plt.imshow(green_values, cmap="viridis")
+            plt.colorbar(label="Green Band")
+            plt.title(f"Green Band - Field {self.field_letter} ({dates[sample_number]})")
+            plt.show()
+
+        if blue:
+            raster_path = self.raster_paths["blue"][sample_number]
+            dates = self.extract_dates("blue")
+            blue_src, blue_values, blue_profile = self.import_raster(raster_path)
+            blue_values[blue_values < 0] = np.nan
+            plt.imshow(blue_values, cmap="viridis")
+            plt.colorbar(label="Blue Band")
+            plt.title(f"Blue Band - Field {self.field_letter} ({dates[sample_number]})")
+            plt.show()
+
+        if nir:
+            raster_path = self.raster_paths["nir"][sample_number]
+            dates = self.extract_dates("nir")
+            nir_src, nir_values, nir_profile = self.import_raster(raster_path)
+            nir_values[nir_values < 0] = np.nan
+            plt.imshow(nir_values, cmap="viridis")
+            plt.colorbar(label="NIR Band")
+            plt.title(f"NIR Band - Field {self.field_letter} ({dates[sample_number]})")
+            plt.show()
+
+        if red_edge:
+            raster_path = self.raster_paths["red_edge"][sample_number]
+            dates = self.extract_dates("red_edge")
+            red_edge_src, red_edge_values, red_edge_profile = self.import_raster(raster_path)
+            red_edge_values[red_edge_values < 0] = np.nan
+            plt.imshow(red_edge_values, cmap="viridis")
+            plt.colorbar(label="Red Edge Band")
+            plt.title(f"Red Edge Band - Field {self.field_letter} ({dates[sample_number]})")
+            plt.show()
+
+        if ndwi:
+            ndwi_values = self.calculate_ndwi(sample_number)
+            dates = self.extract_dates("green")
+            plt.imshow(ndwi_values, cmap="viridis")
+            plt.colorbar(label="NDWI")
+            plt.title(f"Normalized Water Difference Index (NDWI)  - Field {self.field_letter} ({dates[sample_number]})")
+            plt.show()
+
+    def calculate_ndwi(self, sample_number):
+        green_raster_path = self.raster_paths["green"][sample_number]
+        nir_raster_path = self.raster_paths["nir"][sample_number]
+        green_src, green_values, green_profile = self.import_raster(green_raster_path)
+        nir_src, nir_values, nir_profile = self.import_raster(nir_raster_path)
+
+        # Calculate NDWI values
+        ndwi_values = (green_values - nir_values) / (green_values + nir_values)
+
+        ndwi_values[(ndwi_values < -1) | (ndwi_values == 0)] = np.nan
+
+        return ndwi_values
 
     def calculate_tvdi(self):
         temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src = self.import_rasters()
@@ -986,24 +1095,6 @@ class MultispecAnalysis:
         d = 250
         return c * ndvi + d
 
-    def extract_dates(self):
-        """Dates extraction from files names"""
-        dates = []
-        for temp_path in self.temperature_raster:
-            file_name = os.path.basename(temp_path)
-            file_name_without_extension = os.path.splitext(file_name)[0]
-            date = (
-                file_name_without_extension[8:10]
-                + "/"
-                + file_name_without_extension[6:8]
-                + "/"
-                + "20"
-                + file_name_without_extension[4:6]
-            )
-            dates.append(date)
-
-        return dates
-
     def calculate_evolution(self):
         # Import temperature raster data and extract temperature for the current sample number
         temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src = self.import_rasters()
@@ -1070,4 +1161,5 @@ class MultispecAnalysis:
         # # Plot the NDVI
 
 
-print(MultispecAnalysis(sample_number=3).calculate_evolution())
+test = MultispecAnalysis()
+test.plot_rasters(sample_number=7, ndvi=True, red=True, green=True, blue=True, nir=True, red_edge=True, ndwi=True)
