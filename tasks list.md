@@ -27,3 +27,12 @@ Droite de correlation entre terros et GPR :
 
 - Comparer localement terros et Gpr (2 points)
 
+
+
+New todo :
+ - faire fonctionner le calque pour le multispectral zone a et b
+ - tvdi matcher exactement les memes dates que ndvi
+ 
+
+X 2530->3125
+Y 3400 -> 3395

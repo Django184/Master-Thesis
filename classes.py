@@ -1,29 +1,60 @@
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from pykrige.ok import OrdinaryKriging
-from rasterio.warp import reproject, Resampling
-from skgstat import models
-from sklearn.preprocessing import QuantileTransformer
+import glob
+import os
+import re
+from datetime import datetime
+from pathlib import Path
+
+import contextily as cx
 import gstatsim as gs
-import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.path as path
+import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
 import pyproj  # for reprojection
 import rasterio
-import skgstat as skg
-import glob
-from shapely.geometry import Polygon
-import seaborn as sns
-from scipy.spatial import distance as dist
 import scipy.stats
-import contextily as cx
+import seaborn as sns
+import skgstat as skg
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from pykrige.ok import OrdinaryKriging
+from rasterio.warp import Resampling
+from rasterio.warp import reproject
+from scipy.spatial import distance as dist
+from shapely.geometry import Polygon
+from skgstat import models
 from sklearn.metrics import r2_score
-
+from sklearn.preprocessing import QuantileTransformer
 
 GPR_A_PATHS = sorted(glob.glob("Data/Drone GPR/Field A/*.txt"))
 GPR_B_PATHS = sorted(glob.glob("Data/Drone GPR/Field B/*.txt"))
+
+# ---- RASTER FILE LISTS (define before any code uses/prints them) ----
+# Thermal
+TEMP_RASTER = sorted(
+    glob.glob(os.path.join("Data", "thermal", "**", "*.tif"), recursive=True)
+    + glob.glob(os.path.join("Data", "thermal", "**", "*.TIF"), recursive=True)
+    + glob.glob(os.path.join("Data", "thermal", "**", "*.tiff"), recursive=True)
+    + glob.glob(os.path.join("Data", "thermal", "**", "*.TIFF"), recursive=True)
+)
+
+# Multispectral
+NDVI_RASTER = sorted(glob.glob(os.path.join("Data", "Multispectral", "NDVI", "**", "*.[tT][iI][fF]"), recursive=True))
+BLUE_RASTER = sorted(glob.glob(os.path.join("Data", "Multispectral", "Blue", "**", "*.[tT][iI][fF]"), recursive=True))
+GREEN_RASTER = sorted(glob.glob(os.path.join("Data", "Multispectral", "Green", "**", "*.[tT][iI][fF]"), recursive=True))
+RED_RASTER = sorted(glob.glob(os.path.join("Data", "Multispectral", "Red", "**", "*.[tT][iI][fF]"), recursive=True))
+NIR_RASTER = sorted(glob.glob(os.path.join("Data", "Multispectral", "NIR", "**", "*.[tT][iI][fF]"), recursive=True))
+RED_EDGE_RASTER = sorted(
+    glob.glob(os.path.join("Data", "Multispectral", "Rededge", "**", "*.[tT][iI][fF]"), recursive=True)
+)
+
+print("[DEBUG] NDVI_RASTER count:", len(NDVI_RASTER))
+if NDVI_RASTER:
+    print("  e.g.", NDVI_RASTER[0])
+
+print("[DEBUG] TEMP_RASTER count:", len(TEMP_RASTER))
+if TEMP_RASTER:
+    print("  e.g.", TEMP_RASTER[0])
 
 
 class GprAnalysis:
@@ -893,7 +924,7 @@ class Thermal:
     pass
 
 
-NDVI_RASTER = glob.glob("Data/Multispectral/NDVI/*.tif")
+NDVI_RASTER = sorted(glob.glob(os.path.join("Data", "Multispectral", "NDVI", "*.[tT][iI][fF]")))
 BLUE_RASTER = glob.glob("Data/Multispectral/Blue/*.tif")
 GREEN_RASTER = glob.glob("Data/Multispectral/Green/*.tif")
 RED_RASTER = glob.glob("Data/Multispectral/Red/*.tif")
@@ -906,6 +937,8 @@ class MultispecAnalysis:
         self.raster = raster
         self.sample_number = sample_number
         self.field_letter = field_letter
+        self.out_dir = Path("Data/Outputs")
+        self.out_dir.mkdir(parents=True, exist_ok=True)
         self.raster_paths = {
             "ndvi": NDVI_RASTER,
             "red": RED_RASTER,
@@ -913,7 +946,88 @@ class MultispecAnalysis:
             "blue": BLUE_RASTER,
             "nir": NIR_RASTER,
             "red_edge": RED_EDGE_RASTER,
+            "temp": TEMP_RASTER,
         }
+
+    # ---------- NEW SAFE HELPERS (used only by TVDI) ----------
+    @staticmethod
+    def _parse_date_from_name(path_str):
+        """Find YYYYMMDD in filename; return date or None."""
+        m = re.search(r"(\d{8})", os.path.basename(path_str))
+        if not m:
+            return None
+        try:
+            return datetime.strptime(m.group(1), "%Y%m%d").date()
+        except Exception:
+            return None
+
+    @staticmethod
+    def _nearest_by_date(target_date, candidates, max_delta_days=2):
+        """Pick path with date nearest to target_date. Returns (path, date, within_window: bool)."""
+        if target_date is None or not candidates:
+            return None, None, False
+        best = None
+        best_dt = None
+        best_abs = 10**9
+        for p in candidates:
+            dt = MultispecAnalysis._parse_date_from_name(p)
+            if dt is None:
+                continue
+            diff = abs((dt - target_date).days)
+            if diff < best_abs:
+                best, best_dt, best_abs = p, dt, diff
+        return best, best_dt, (best_abs <= max_delta_days)
+
+    def import_raster_array(self, raster_path):
+        """Safe read that returns (array, profile) only — no open handle."""
+        with rasterio.open(raster_path) as src:
+            arr = src.read(1).astype(np.float32)
+            profile = src.profile.copy()
+        return arr, profile
+
+    def _import_pair_for_tvdi(self, sample_number):
+        """
+        Load NDVI at index and thermal for the EXACT same date.
+        Returns: temp_C, ndvi_resampled, temp_profile, ndvi_profile, temp_path, ndvi_path
+        """
+        ndvi_path = self.raster_paths["ndvi"][sample_number]
+        ndvi_date = self._parse_date_from_name(ndvi_path)
+
+        if ndvi_date is None:
+            raise ValueError(f"Could not parse date from NDVI file: {ndvi_path}")
+
+        print("[DEBUG] Matching NDVI:", ndvi_path)
+        print("[DEBUG] Thermal candidates:", len(self.raster_paths["temp"]))
+
+        # Find thermal raster with exactly same date
+        exact_matches = [p for p in self.raster_paths["temp"] if self._parse_date_from_name(p) == ndvi_date]
+
+        if not exact_matches:
+            print(f"[TVDI] Skipping NDVI date {ndvi_date} — no matching thermal raster found.")  # <<< CHANGE
+            return None, None, None, None, None, ndvi_path  # <<< CHANGE
+
+        temp_path = exact_matches[0]
+
+        ndvi, ndvi_prof = self.import_raster_array(ndvi_path)
+        temp, temp_prof = self.import_raster_array(temp_path)
+
+        ndvi[(ndvi < -1.0) | (ndvi > 1.0)] = np.nan
+
+        if np.isfinite(temp).any() and np.nanmedian(temp) > 150:
+            temp = temp - 273.15
+        temp[(temp < -100) | (temp > 80)] = np.nan
+
+        ndvi_resampled = np.full_like(temp, np.nan, dtype=np.float32)
+        reproject(
+            source=ndvi,
+            destination=ndvi_resampled,
+            src_transform=ndvi_prof["transform"],
+            src_crs=ndvi_prof["crs"],
+            dst_transform=temp_prof["transform"],
+            dst_crs=temp_prof["crs"],
+            resampling=Resampling.nearest,
+        )
+        return temp, ndvi_resampled, temp_prof, ndvi_prof, temp_path, ndvi_path
 
     def import_raster(self, raster_path):
         # Open the temperature raster for the specified sample number
@@ -1029,137 +1143,137 @@ class MultispecAnalysis:
 
         return ndwi_values
 
-    def calculate_tvdi(self):
-        temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src = self.import_rasters()
+    def calculate_tvdi(
+        self,
+        sample_number=None,
+        save=True,
+        plot=True,
+        ndvi_bin_width=0.01,
+        pct_wet=5,
+        pct_dry=95,
+        min_pixels_per_bin=50,
+    ):
+        if sample_number is None:
+            sample_number = self.sample_number
 
-        # Resample the NDVI raster to match the temperature raster's dimensions
-        ndvi_resampled = np.zeros_like(temperature)
-        # Reproject the NDVI raster to match the temperature raster's dimensions
-        # by using the 'reproject' function from rasterio.warp module.
-        # The 'ndvi' array is the source raster, 'ndvi_resampled' is the destination array.
-        # 'ndvi_src.transform' and 'ndvi_src.crs' are the metadata of the source raster.
-        # 'temp_profile["transform"]' and 'temp_profile["crs"]' are the metadata of the destination raster.
-        # 'Resampling.nearest' specifies the resampling method. The 'dst_resolution' parameter
-        # sets the resolution of the destination raster.
-        reproject(
-            ndvi,
-            ndvi_resampled,
-            src_transform=ndvi_src.transform,
-            src_crs=ndvi_src.crs,
-            dst_transform=temp_profile["transform"],
-            dst_crs=temp_profile["crs"],
-            resampling=Resampling.nearest,
-            dst_resolution=(
-                temp_profile["transform"][0],
-                -temp_profile["transform"][4],
-            ),
+        result = self._import_pair_for_tvdi(sample_number)
+        if result[0] is None:
+            return None, None
+
+        temp, ndvi_r, temp_prof, ndvi_prof, tpath, npath = result
+
+        mask = np.isfinite(temp) & np.isfinite(ndvi_r)
+        if mask.sum() < 1000:
+            raise RuntimeError("Too few valid pixels to build TVDI.")
+        ts = temp[mask]
+        vi = ndvi_r[mask]
+
+        # Bin NDVI and compute robust envelopes
+        vi_min, vi_max = np.nanmin(vi), np.nanmax(vi)
+        edges = np.arange(
+            np.floor(vi_min / ndvi_bin_width) * ndvi_bin_width,
+            np.ceil(vi_max / ndvi_bin_width) * ndvi_bin_width + ndvi_bin_width,
+            ndvi_bin_width,
         )
+        centers, wet_vals, dry_vals, counts = [], [], [], []
+        for i in range(len(edges) - 1):
+            lo, hi = edges[i], edges[i + 1]
+            sel = (vi >= lo) & (vi < hi)
+            if sel.sum() >= min_pixels_per_bin:
+                centers.append((lo + hi) / 2.0)
+                counts.append(sel.sum())
+                wet_vals.append(np.nanpercentile(ts[sel], pct_wet))
+                dry_vals.append(np.nanpercentile(ts[sel], pct_dry))
+        centers = np.asarray(centers, np.float32)
+        wet_vals = np.asarray(wet_vals, np.float32)
+        dry_vals = np.asarray(dry_vals, np.float32)
+        counts = np.asarray(counts, np.float32)
+        if centers.size < 3:
+            raise RuntimeError("Not enough NDVI bins with data to fit edges.")
 
-        # Calculate the maximum temperature for the given NDVI value
-        t_max_values = self.t_max(ndvi_resampled)
-        # Calculate the minimum temperature for the given NDVI value
-        t_min_values = self.t_min(ndvi_resampled)
+        # Weighted linear fits for edges
+        W = np.sqrt(counts / (counts.max() + 1e-9))
+        a_dry, b_dry = np.polyfit(centers, dry_vals, 1, w=W)  # Tsmax(NDVI)
+        a_wet, b_wet = np.polyfit(centers, wet_vals, 1, w=W)  # Tsmin(NDVI)
 
-        # Calculate the TVDI (Temperature Vegetation Dryness Index)
-        tvdi = (temperature - t_min_values) / (t_max_values - t_min_values)
+        # TVDI
+        tsmax = a_dry * ndvi_r + b_dry
+        tsmin = a_wet * ndvi_r + b_wet
+        denom = tsmax - tsmin
+        tvdi = (temp - tsmin) / denom
+        tvdi[~np.isfinite(tvdi)] = np.nan
+        tvdi = np.clip(tvdi, 0, 1).astype(np.float32)
 
-        # Set the nodata value to -9999
-        tvdi[np.isnan(tvdi)] = -9999
+        # Save float32 GeoTIFF
+        date_obj = self._parse_date_from_name(npath)
+        date_str = date_obj.strftime("%Y%m%d") if date_obj else "unknown"
+        out_path = self.out_dir / f"TVDI_Field{self.field_letter}_{date_str}.tif"
+        if save:
+            prof = temp_prof.copy()
+            prof.update(dtype="float32", count=1, nodata=np.nan, compress="lzw")
+            with rasterio.open(out_path, "w", **prof) as dst:
+                dst.write(tvdi, 1)
 
-        # Adjust the TVDI range to 0-255 for storage as an unsigned 8-bit integer
-        tvdi_adjusted = ((tvdi - tvdi.min()) / (tvdi.max() - tvdi.min()) * 255).astype(np.uint8)
+        # Plots (keeps your pixel‑poly mask style)
+        if plot:
+            # --- Scatter triangle ---
+            plt.figure(figsize=(5, 4), dpi=300)
+            idx = np.random.choice(ts.size, size=min(5000, ts.size), replace=False)
+            plt.scatter(vi[idx], ts[idx], s=2, alpha=0.3)
+            x_line = np.linspace(np.nanmin(centers), np.nanmax(centers), 100)
+            plt.plot(x_line, a_dry * x_line + b_dry, lw=2, label="Dry edge (95th)")
+            plt.plot(x_line, a_wet * x_line + b_wet, lw=2, label="Wet edge (5th)")
+            ttl_date = date_obj.strftime("%d/%m/%Y") if date_obj else "unknown date"
+            plt.xlabel("NDVI [-]")
+            plt.ylabel("LST [°C]")
+            plt.title(f"NDVI–LST Triangle • Field {self.field_letter} • {ttl_date}")
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
 
-        polygon_coords = np.array([[3100, 4800], [4550, 3400], [3550, 2350], [2530, 3400], [3100, 4800]])
-        if self.field_letter == "B":
+            # --- TVDI map ---
+            masked_tvdi = self.apply_field_mask(tvdi)  # <<< ADDED
+            plt.figure(figsize=(5, 5), dpi=300)
+            plt.imshow(masked_tvdi, cmap="viridis", vmin=0, vmax=1)
+            cbar = plt.colorbar()
+            cbar.set_label("TVDI [-]")
+            plt.title(f"TVDI • Field {self.field_letter} • {ttl_date}")
+            plt.tight_layout()
+            plt.show()
+
+        return tvdi, (str(out_path) if save else None)
+
+    def apply_field_mask(self, array):
+        if self.field_letter == "A":
+            polygon_coords = np.array([[3100, 4800], [4550, 3400], [3550, 2350], [2530, 3400], [3100, 4800]])
+            x_offset, y_offset = 650, -10
+
+        else:  # Field B
             polygon_coords = np.array(
                 [[2530, 3400], [3550, 2350], [3350, 2150], [3550, 1950], [3000, 1000], [1700, 1300], [2530, 3400]]
             )
-        polygon = path.Path(polygon_coords)
+            x_offset, y_offset = 650, -150
 
-        # Plot the TVDI
-        plt.gca().add_patch(patches.PathPatch(polygon, fill=False, linewidth=2, color="grey"))
-        plt.imshow(tvdi_adjusted, cmap="jet", vmin=200, vmax=300)
-        plt.colorbar(label="TVDI")
-        plt.title("Temperature Vegetation Dryness Index (TVDI)")
-        plt.show()
+        # Apply offset
+        adjusted_coords = polygon_coords.copy()
+        adjusted_coords[:, 0] += x_offset  # Shift X
+        adjusted_coords[:, 1] += y_offset  # Shift Y
 
-    def t_max(self, ndvi):
-        """Placeholder coefficients for T_max(NDVI) = a * NDVI + b"""
-        a = 40
-        b = 300
-        return a * ndvi + b
+        # Create mask
+        poly = path.Path(adjusted_coords)
+        ny, nx = array.shape
+        X, Y = np.meshgrid(np.arange(nx), np.arange(ny))
+        points = np.vstack((X.ravel(), Y.ravel())).T
+        mask = poly.contains_points(points).reshape(array.shape)
 
-    def t_min(self, ndvi):
-        """Placeholder coefficients for T_min(NDVI) = c * NDVI + d"""
-        c = 20
-        d = 250
-        return c * ndvi + d
-
-    def calculate_evolution(self):
-        # Import temperature raster data and extract temperature for the current sample number
-        temperature, ndvi, temp_profile, ndvi_profile, temp_src, ndvi_src = self.import_rasters()
-
-        # Mask areas where the temperature is below a certain threshold (e.g., -100°C)
-        temperature[temperature < -100] = np.nan
-
-        # Plot the temperature
-        plt.figure(figsize=(10, 10))
-        plt.imshow(temperature, cmap="inferno")
-        plt.colorbar()
-        plt.title("Temperature of the study site (04/07/2023)")
-        plt.show()
-
-        # # Calculate the median temperature for the raster
-        # temperature_median = np.nanmedian(temperature, axis=(0, 1))
-
-        # # Extract the dates for each sample
-        # dates = self.extract_dates()
-        # date_index = pd.to_datetime(dates, format="%d/%m/%Y")
-
-        # # Create an instance of the GprAnalysis class and calculate the median GPR-derived VWC
-        # gpr_analysis = GprAnalysis(field_letter=self.field_letter, sample_number=self.sample_number)
-        # gpr_median, gpr_mean = gpr_analysis.plot_mean_median(plot=False)  # Get GPR mean and median values
-
-        # # Plotting the correlation between median temperature and median GPR VWC
-        # plt.figure(figsize=(10, 6))
-        # plt.scatter(gpr_median, [temperature_median] * len(gpr_median), c="blue", label="Median Temp vs GPR VWC")
-        # plt.title("Correlation between GPR VWC and Temperature - Field {}".format(self.field_letter))
-        # plt.xlabel("GPR Median Volumetric Water Content [VWC]")
-        # plt.ylabel("Median Temperature [°C]")
-        # plt.grid(True)
-        # plt.legend()
-        # plt.show()
-
-        # Optional: Compute the correlation coefficient
-        # correlation = np.corrcoef(gpr_median, [temperature_median] * len(gpr_median))[0, 1]
-        # print(f"Correlation coefficient: {correlation}")
-
-        # return gpr_median, temperature_median, correlation
-        # # Calculate the correlation between the evolution of temperature and the evolution of GPR-derived water content
-        # correlation = np.corrcoef(temperature_median, gpr_median)[0, 1]
-
-        # # Calculate the median temperature for each date
-        # date_index = pd.to_datetime(temp_src.tags()['TIFFTAG_DATETIME'], format="%Y:%m:%d %H:%M:%S").date()
-        # temperature_median = np.nanmedian(temperature, axis=(0, 1))
-
-        # # Plot the median temperature over time
-        # plt.figure(figsize=(10, 6))
-        # plt.plot(date_index, temperature_median, marker='o')
-        # plt.xlabel('Date')
-        # plt.ylabel('Median Temperature (C)')
-        # plt.title('Median Temperature Evolution')
-        # plt.xticks(rotation=45)
-        # plt.grid(True)
-        # plt.show()
-
-        # # Plot the temperature between -5 and 25 degrees
-        # plt.imshow(temperature, cmap="jet")
-        # plt.colorbar(label="Temperature (C)")
-        # plt.title("Temperature")
-        # plt.ylim()
-        # plt.show()
-        # # Plot the NDVI
+        masked_array = array.copy()
+        masked_array[~mask] = np.nan
+        return masked_array
 
 
-test = MultispecAnalysis()
-test.plot_rasters(sample_number=7, ndvi=True, red=True, green=True, blue=True, nir=True, red_edge=True, ndwi=True)
+# test = MultispecAnalysis()
+# test.plot_rasters(sample_number=7, ndvi=True, red=True, green=True, blue=True, nir=True, red_edge=True, ndwi=True)
+
+msa = MultispecAnalysis(sample_number=1, field_letter="A")
+tvdi, out_path = msa.calculate_tvdi(plot=True, save=True)  # one date
+# msa.calculate_tvdi_all(plot=False)  # batch
